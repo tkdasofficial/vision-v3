@@ -312,7 +312,6 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const savedRef = useRef(new Map<string, string>());
-  const idMapRef = useRef(new Map<string, string>());
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
   const pendingRows = useRef<Record<string, Map<string, { row: any; msg: ChatMessage }>>>({});
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
