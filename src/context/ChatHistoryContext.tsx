@@ -201,49 +201,28 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   // Load messages for a specific chat session
+  // Always reads the saved conversation (the local copy is only a fallback when offline).
+  // Throws Error("not_found") when the chat doesn't exist or isn't this user's, Error("unavailable") when unreachable.
   const loadChatMessages = useCallback(async (sessionId: string): Promise<ChatMessage[]> => {
-    // Try localStorage cache first for instant load
-    const cached = lsGetMessages(sessionId);
-    if (cached && cached.length > 0) {
-      setHistory((prev) =>
-        prev.map((h) => (h.id === sessionId ? { ...h, messages: cached } : h))
-      );
-      // Still fetch from DB in background to get latest
-      supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("session_id", sessionId)
-        .order("created_at", { ascending: true })
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            const msgs = rowsToConversation(data);
-            lsSetMessages(sessionId, msgs);
-            setHistory((prev) =>
-              prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
-            );
-          }
-        });
-      return cached;
-    }
-
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true });
-
     if (error) {
       console.error("Failed to load chat messages:", error);
-      return [];
+      const cached = lsGetMessages(sessionId);
+      if (cached && cached.length > 0) return cached;
+      throw new Error("unavailable");
     }
-
+    if (!data || data.length === 0) {
+      const { data: session, error: sErr } = await supabase.from("chat_sessions").select("id").eq("id", sessionId).maybeSingle();
+      if (sErr) throw new Error("unavailable");
+      if (!session) { lsRemoveMessages(sessionId); throw new Error("not_found"); }
+    }
     const msgs = rowsToConversation(data || []);
     lsSetMessages(sessionId, msgs);
-
-    setHistory((prev) =>
-      prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
-    );
-
+    setHistory((prev) => prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h)));
     return msgs;
   }, []);
 
