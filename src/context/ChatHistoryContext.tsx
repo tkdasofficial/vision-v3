@@ -101,6 +101,9 @@ function buildMetadata(msg: ChatMessage): Record<string, any> {
   if (msg.webApp) meta.webApp = msg.webApp;
   if (msg.document) meta.document = msg.document;
   if (msg.executionMode) meta.executionMode = msg.executionMode;
+  if (msg.pasted?.length) meta.pasted = msg.pasted;
+  if (msg.typed !== undefined) meta.typed = msg.typed;
+  if (msg.attachments?.length) meta.attachments = msg.attachments;
   return meta;
 }
 
@@ -120,6 +123,9 @@ function rowToMessage(row: any): ChatMessage {
     webApp: meta.webApp,
     document: meta.document,
     executionMode: meta.executionMode,
+    pasted: meta.pasted,
+    typed: meta.typed,
+    attachments: meta.attachments,
   };
 }
 

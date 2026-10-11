@@ -16,6 +16,7 @@ import FileCreatorCard from "@/components/file-creator-card";
 import AgentProgressCard from "@/components/agent-progress-card";
 import StoryFlowCard from "@/components/story/story-flow-card";
 import CodeBlock from "@/components/chat/code-block";
+import UserMessage from "@/components/chat/user-message";
 import DocumentCard from "@/components/chat/document-card";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
@@ -217,25 +218,6 @@ const useSegmentedTypewriter = (segments: Segment[], enabled: boolean) => {
   return { charCounts, allDone };
 };
 
-const USER_PREVIEW_CHARS = 50;
-const UserBubble = ({ content, imageUrl }: { content: string; imageUrl?: string }) => {
-  const [expanded, setExpanded] = useState(false);
-  const long = (content || "").length > USER_PREVIEW_CHARS;
-  const shown = long && !expanded ? content.slice(0, USER_PREVIEW_CHARS).trimEnd() + "…" : content;
-  return (
-    <div className="relative max-w-[50%] min-w-0 rounded-2xl rounded-br-sm bg-muted text-foreground px-3.5 py-2 text-[15px]">
-      {imageUrl && (
-        <img src={imageUrl} alt="Attached" className="w-28 sm:w-36 h-28 sm:h-36 rounded-xl object-cover mb-2.5 border border-background/10" />
-      )}
-      <p className="leading-relaxed whitespace-pre-wrap break-words">{shown}</p>
-      {long && (
-        <button type="button" onClick={() => setExpanded((v) => !v)} className="mt-1 text-xs font-medium text-muted-foreground hover:text-foreground">
-          {expanded ? "Show Less" : "Show More"}
-        </button>
-      )}
-    </div>
-  );
-};
 
 const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false }, ref) => {
   const isUser = message.role === "user";
@@ -316,7 +298,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
     >
       {isUser ? (
         <div className="flex justify-end">
-          <UserBubble content={message.content} imageUrl={message.imageUrl} />
+          <UserMessage message={message} />
         </div>
       ) : (
         <div className="group relative w-full">
