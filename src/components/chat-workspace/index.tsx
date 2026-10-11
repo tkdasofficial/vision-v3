@@ -221,7 +221,13 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
           id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
           content: j.status === "failed" || j.status === "timed_out" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" || j.type === "runtime_task" ? "Here's the result." : "Here's your file.",
         }));
-        return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
+        if (!missing.length) return prev;
+        // A task starts the instant its question is sent, but older chats saved the question a moment later
+        // (after a short save delay), so a task may look slightly older than its own question.
+        // Place each task after the question that triggered it: allow a few seconds of slack.
+        const SLACK = 8000;
+        const key = (m: ChatMessageType) => new Date(m.timestamp).getTime() + (m.job ? SLACK : 0);
+        return [...prev, ...missing].map((m, i) => ({ m, i })).sort((a, b) => key(a.m) - key(b.m) || a.i - b.i).map((x) => x.m);
       });
     }).catch(() => undefined);
     return () => { cancelled = true; };
