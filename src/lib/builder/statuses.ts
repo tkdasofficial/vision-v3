@@ -49,6 +49,7 @@ export type JobView = {
   error: string | null;
   result: any;
   artifacts: ArtifactRef[];
+  sessionId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

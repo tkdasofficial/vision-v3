@@ -13,7 +13,7 @@ const GUEST = ["/auth/login", "/auth/register", "/auth/forgot-password"];
 const RECOVERY = ["/auth/reset-password"];
 /** Signed-in-only areas (prefix match). */
 const PROTECTED = [
-  "/chat", "/builder", "/images", "/videos", "/studio", "/library", "/projects", "/integrations", "/search", "/inbox", "/account",
+  "/chat", "/images", "/videos", "/studio", "/library", "/projects", "/integrations", "/search", "/inbox", "/account",
   "/prospecting", "/documents", "/billing", "/support", "/settings",
   "/admin", "/getting-started", "/enterprise/getting-started",
   "/app", // legacy addresses; they redirect to the paths above

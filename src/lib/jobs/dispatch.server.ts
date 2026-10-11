@@ -3,8 +3,8 @@ import { ARCHIVE_LIMITS } from "../../../security/archive/zip-guard";
 import type { JobType } from "@/lib/builder/statuses";
 import { createJob, getJob, safeError } from "./jobs.server";
 
-export async function startJob(userId: string, id: string, type: JobType, input: any, attempt = 1) {
-  const job = await createJob(id, userId, type, type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : input, attempt);
+export async function startJob(userId: string, id: string, type: JobType, input: any, attempt = 1, sessionId: string | null = null) {
+  const job = await createJob(id, userId, type, type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : input, attempt, sessionId);
   const { runCodeExport, runProjectGenerate, runZipAnalyze } = await import("./runners.server");
   try {
     if (type === "code_export") await runCodeExport(job, input);

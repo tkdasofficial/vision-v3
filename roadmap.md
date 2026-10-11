@@ -23,7 +23,7 @@
 - [x] Research web search: Wikipedia + DuckDuckGo quick answers, SearXNG when configured
 - [ ] Two-step sign-in (authenticator app / email code) — not built yet
 - [ ] Broad web search needs a SearXNG instance or a Brave/Tavily key from user
-- [x] PRD phase 1: code file export, multi-file project generation (HTML site, React TS/JS Vite, Node, Python) with static checks + bounded repair, verified ZIP export, safe ZIP upload/analysis/docs, persistent jobs with real statuses, cancel/retry, stale recovery, owner-only expiring downloads, tests
+- [x] PRD phase 1 (runs inside chat; no separate page): code file export, multi-file project generation (HTML site, React TS/JS Vite, Node, Python) with static checks + bounded repair, verified ZIP export, safe ZIP upload/analysis/docs, persistent jobs with real statuses, cancel/retry, stale recovery, owner-only expiring downloads, tests
 - [ ] Connect Google Drive for job downloads (needs GOOGLE_CLIENT_ID/SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_DRIVE_FOLDER_ID in this project) — D1 store used meanwhile
 - [ ] Real installs/builds/tests for generated projects (needs a code sandbox service, e.g. E2B, or Cloudflare Containers)
 - [ ] PRD phase 2: remaining tool categories (OCR, document conversion, data/CSV, search & indexing, approvals, etc.)

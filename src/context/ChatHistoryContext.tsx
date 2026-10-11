@@ -80,6 +80,17 @@ const getDateLabel = (ts: number): string => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+/** Same local message id → same database row id, across remounts and reloads (prevents duplicate rows). */
+function stableRowId(sessionId: string, localId: string): string {
+  let h = "";
+  for (let seed = 0; seed < 4; seed++) {
+    let x = 0x811c9dc5 ^ seed;
+    for (const ch of `${sessionId}:${localId}`) x = Math.imul(x ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+    h += x.toString(16).padStart(8, "0");
+  }
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /** Serialize a ChatMessage's extra data into a JSONB-safe metadata object */
 function buildMetadata(msg: ChatMessage): Record<string, any> {
   const meta: Record<string, any> = {};
@@ -301,20 +312,23 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   );
 
   const savedRef = useRef(new Map<string, string>());
-  const idMapRef = useRef(new Map<string, string>());
   const saveTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const pendingRows = useRef<Record<string, Map<string, { row: any; msg: ChatMessage }>>>({});
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
-    lsSetMessages(id, messages);
-
     // Debounced save of messages that are new or changed since the last save.
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const pending = messages.filter((m) => m.content && savedRef.current.get(m.id) !== m.content);
+    // Cache with the database ids so a reload re-saves the same rows instead of creating duplicates.
+    lsSetMessages(id, messages.filter((m) => !m.job).map((m) => {
+      if (UUID.test(m.id)) return m;
+      return { ...m, id: stableRowId(id, m.id) };
+    }));
+    // Task messages are restored from the server's task records, so they are not saved as chat rows.
+    const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
     const rows = pending.map((m) => {
-      if (!UUID.test(m.id) && !idMapRef.current.has(m.id)) idMapRef.current.set(m.id, crypto.randomUUID());
       return {
-        id: UUID.test(m.id) ? m.id : idMapRef.current.get(m.id)!,
+        id: UUID.test(m.id) ? m.id : stableRowId(id, m.id),
         session_id: id,
         role: m.role as string,
         content: m.content,
@@ -322,14 +336,21 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
         metadata: buildMetadata(m) as any,
       };
     });
+    // Merge with rows still waiting from earlier calls so a rapid follow-up save never drops them.
+    const queue = (pendingRows.current[id] ??= new Map());
+    rows.forEach((r, i) => queue.set(r.id, { row: r, msg: pending[i] }));
     clearTimeout(saveTimers.current[id]);
     saveTimers.current[id] = setTimeout(() => {
-      pending.forEach((m) => savedRef.current.set(m.id, m.content));
+      const batch = [...queue.values()];
+      queue.clear();
+      const allRows = batch.map((b) => b.row);
+      const allMsgs = batch.map((b) => b.msg);
+      allMsgs.forEach((m) => savedRef.current.set(m.id, m.content));
     supabase
       .from("chat_messages")
-      .upsert(rows, { onConflict: "id" })
+      .upsert(allRows, { onConflict: "id" })
       .then(({ error }) => {
-        if (error) { console.error("Failed to save messages:", error); pending.forEach((m) => savedRef.current.delete(m.id)); }
+        if (error) { console.error("Failed to save messages:", error); allMsgs.forEach((m) => savedRef.current.delete(m.id)); }
       });
       supabase.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", id).then(() => {});
     }, 800);

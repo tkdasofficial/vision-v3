@@ -16,7 +16,7 @@ import type { CreationMode } from "@/lib/creation-references";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
-import { runJob } from "@/lib/builder/jobs-client";
+import { runJob, listJobs } from "@/lib/builder/jobs-client";
 import type { ChatMode } from "@/lib/ai/modes";
 import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
@@ -184,6 +184,38 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       supabase.removeChannel(channel);
     };
   }, [chatId, user, isIncognito]);
+
+  /** Runs a backend job and keeps one assistant message in this chat updated with its live status. */
+  const runInlineJob = useCallback(async (type: "project_generate" | "code_export", input: Record<string, unknown>, sessionId: string | null) => {
+    const jobId = crypto.randomUUID();
+    const msgId = `job-${jobId}`;
+    const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : "Writing your file. The download will appear here.";
+    const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
+      const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
+      const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
+      return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
+    });
+    try { await runJob(type, { input, sessionId }, show, jobId); }
+    catch (e: any) { setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
+  }, []);
+
+  // Restore this conversation's backend tasks (after a refresh or when the chat gets its own address).
+  useEffect(() => {
+    if (isIncognito || !chatId) return;
+    let cancelled = false;
+    listJobs(chatId).then((jobs) => {
+      if (cancelled || !jobs.length) return;
+      setMessages((prev) => {
+        const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
+        const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
+          id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
+          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : "Here's your file.",
+        }));
+        return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
+      });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [chatId, isIncognito]);
 
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => {
     if (creationMode) {
@@ -400,64 +432,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     const isAgent = (!taskMode || taskMode === "default") && /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app|game|2d|3d|platformer|rpg|puzzle|arcade|shooter|racing|runner|fighting|tower.defense|card.game|tetris|snake|pong|breakout|flappy|chess|checkers|fps|open.world|sandbox|survival|roguelike|roguelite|metroidvania|beat.em.up|rhythm|simulation|strategy|mmorpg|moba|battle.royale)\b/i.test(content);
 
     if (isAgent) {
-      try {
-        // Gather existing project state from previous messages
-        const lastWebApp = [...messages].reverse().find((m) => m.webApp)?.webApp;
-
-        // Build conversation history for context continuity
-        const conversationHistory = messages
-          .filter((m) => !m.imageUrl && !m.videos && !m.videoGeneration && !m.videoEdit)
-          .map((m) => ({ role: m.role, content: m.content }));
-
-        // Detect quality mode from content
-        const quality = /\b(production|prod|professional|polished)\b/i.test(content)
-          ? "production"
-          : /\b(prototype|proto|quick|simple|fast|basic)\b/i.test(content)
-          ? "prototype"
-          : "production"; // default to production for 10x quality
-
-        dispatchBgTask("code", { prompt: content, quality, projectState: lastWebApp, conversationHistory }, chatId || undefined).catch(() => {});
-        const resp = await fetch(CODE_GEN_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: [{ role: "user", content }],
-            projectState: lastWebApp || undefined,
-            conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
-            quality,
-          }),
-        });
-
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || "Code generation failed");
-
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.explanation || "Here's your generated web application!",
-          timestamp: new Date(),
-          webApp: {
-            files: data.files,
-            framework: data.framework,
-            dependencies: data.dependencies || {},
-            entryPoint: data.entryPoint || "index.html",
-            explanation: data.explanation || "",
-            quality,
-          },
-        }]);
-      } catch (e: any) {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: `Sorry, code generation failed: ${e.message}`,
-          timestamp: new Date(),
-        }]);
-      }
-      clearTimeout(phaseTimer);
+      // Built on the server as a tracked job; progress, files and the ZIP download appear in this message.
+      clearPhaseTimers();
       setIsTyping(false);
+      await runInlineJob("project_generate", { prompt: content }, sessionId);
       return;
     }
 
@@ -469,6 +447,14 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       || /\b(save|export|download)\b.*\b(as|to|into)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls|excel|file)\b/i.test(content)
       || /\b(write|create)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls)\b/i.test(content)
       || /\b(create|make|generate|build)\b.*\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
+
+    const codeFmt = fileFormatMatch?.[1]?.toLowerCase();
+    if (isFileCreate && codeFmt && ["js", "ts", "py", "sql", "sh", "bat", "html", "css", "json", "yaml", "toml", "xml"].includes(codeFmt)) {
+      clearPhaseTimers();
+      setIsTyping(false);
+      await runInlineJob("code_export", { prompt: content, language: codeFmt }, sessionId);
+      return;
+    }
 
     if (isFileCreate && !isAgent) {
       const fmMatch = fileFormatMatch?.[1]?.toLowerCase();
@@ -738,16 +724,19 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     setIsTyping(true);
     setThinkingPhase("thinking");
 
+    let zipSession: string | null = isIncognito ? null : chatId;
     if (!isIncognito && !chatId) {
       const title = `ZIP: ${file.name}`;
       const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
+      zipSession = newId;
       setChatId(newId);
       setChatTitle(title);
       onChatCreated?.(newId);
     }
 
     // Analysis runs on the server as a tracked job; the card shows its real status.
-    const msgId = (Date.now() + 1).toString();
+    const zipJobId = crypto.randomUUID();
+    const msgId = `job-${zipJobId}`;
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `Couldn't analyze **${file.name}**: ${job.error ?? "unknown error"}` : `Analysis of **${file.name}**`;
       const msg = { id: msgId, role: "assistant" as const, content, timestamp: new Date(), job };
@@ -755,7 +744,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     });
     setIsTyping(false);
     try {
-      await runJob("zip_analyze", { file }, show);
+      await runJob("zip_analyze", { file, sessionId: zipSession }, show, zipJobId);
     } catch (e: any) {
       setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Couldn't analyze the ZIP: ${e.message}`, timestamp: new Date() }]);
     }
