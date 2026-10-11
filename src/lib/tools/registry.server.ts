@@ -63,14 +63,14 @@ async function inputText(c: ToolCtx, p: any): Promise<string> {
 }
 async function tableOf(c: ToolCtx, p: any): Promise<unknown[][]> {
   if (Array.isArray(p?.rows)) return p.rows;
-  if (typeof p?.csv === "string") return P.parseCsv(p.csv);
+  if (typeof p?.csv === "string") return P.typedRows(P.parseCsv(p.csv));
   const f = c.files.length ? pick(c, p, ["xlsx", "text"]) : null;
   if (f && kindOf(f) === "xlsx") { const sheets = readXlsx(f.bytes); return (sheets.find((s) => s.name === p?.sheet) ?? sheets[0]).rows; }
   const t = f ? strFromU8(f.bytes) : c.lastText;
   if (!t) throw new Error("Attach a CSV, Excel or JSON file with the data.");
   const trimmed = t.trim();
   if (trimmed.startsWith("[") || trimmed.startsWith("{")) { const j = JSON.parse(trimmed); const arr = Array.isArray(j) ? j : Object.values(j).find(Array.isArray) ?? [j]; return P.objectsToRows(arr as any); }
-  return P.parseCsv(t);
+  return P.typedRows(P.parseCsv(t));
 }
 const clean = (t: string) => t.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
 
