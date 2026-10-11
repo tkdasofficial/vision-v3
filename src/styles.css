@@ -246,17 +246,17 @@
   }
 }
 
-/* Code canvas: fixed dark editor surface with real syntax colours (GitHub Dark palette). */
-.code-canvas { background: #0d1117; color: #e6edf3; }
-.code-canvas .hljs { color: #e6edf3; background: transparent; }
-.code-canvas .hljs-comment, .code-canvas .hljs-quote { color: #8b949e; font-style: italic; }
-.code-canvas .hljs-keyword, .code-canvas .hljs-selector-tag, .code-canvas .hljs-meta .hljs-keyword, .code-canvas .hljs-doctag { color: #ff7b72; }
-.code-canvas .hljs-string, .code-canvas .hljs-regexp, .code-canvas .hljs-meta .hljs-string { color: #a5d6ff; }
-.code-canvas .hljs-title, .code-canvas .hljs-title.function_, .code-canvas .hljs-section { color: #d2a8ff; }
-.code-canvas .hljs-name, .code-canvas .hljs-selector-id, .code-canvas .hljs-selector-class, .code-canvas .hljs-built_in, .code-canvas .hljs-tag { color: #7ee787; }
-.code-canvas .hljs-attr, .code-canvas .hljs-attribute, .code-canvas .hljs-number, .code-canvas .hljs-literal, .code-canvas .hljs-variable, .code-canvas .hljs-template-variable, .code-canvas .hljs-property, .code-canvas .hljs-meta { color: #79c0ff; }
-.code-canvas .hljs-type, .code-canvas .hljs-params, .code-canvas .hljs-symbol, .code-canvas .hljs-bullet { color: #ffa657; }
-.code-canvas .hljs-addition { color: #aff5b4; background: #033a16; }
-.code-canvas .hljs-deletion { color: #ffdcd7; background: #67060c; }
-.code-canvas header { border-color: #30363d; }
-.code-canvas header button, .code-canvas header span { color: #c9d1d9; }
+/* Code canvas: Light = white-gray surface with GitHub Light colours; Dark = dark-gray surface with GitHub Dark colours. */
+.code-canvas { --cc-bg:#f3f4f6; --cc-fg:#1f2328; --cc-line:#d0d7de; --cc-com:#6e7781; --cc-kw:#cf222e; --cc-str:#0a3069; --cc-fn:#8250df; --cc-tag:#116329; --cc-attr:#0550ae; --cc-type:#953800; background:var(--cc-bg); color:var(--cc-fg); }
+.dark .code-canvas { --cc-bg:#1f1f1f; --cc-fg:#e6edf3; --cc-line:#3a3a3a; --cc-com:#8b949e; --cc-kw:#ff7b72; --cc-str:#a5d6ff; --cc-fn:#d2a8ff; --cc-tag:#7ee787; --cc-attr:#79c0ff; --cc-type:#ffa657; }
+.code-canvas .hljs { color: var(--cc-fg); background: transparent; }
+.code-canvas .hljs-comment, .code-canvas .hljs-quote { color: var(--cc-com); font-style: italic; }
+.code-canvas .hljs-keyword, .code-canvas .hljs-selector-tag, .code-canvas .hljs-meta .hljs-keyword, .code-canvas .hljs-doctag { color: var(--cc-kw); }
+.code-canvas .hljs-string, .code-canvas .hljs-regexp, .code-canvas .hljs-meta .hljs-string { color: var(--cc-str); }
+.code-canvas .hljs-title, .code-canvas .hljs-title.function_, .code-canvas .hljs-section { color: var(--cc-fn); }
+.code-canvas .hljs-name, .code-canvas .hljs-selector-id, .code-canvas .hljs-selector-class, .code-canvas .hljs-built_in, .code-canvas .hljs-tag { color: var(--cc-tag); }
+.code-canvas .hljs-attr, .code-canvas .hljs-attribute, .code-canvas .hljs-number, .code-canvas .hljs-literal, .code-canvas .hljs-variable, .code-canvas .hljs-template-variable, .code-canvas .hljs-property, .code-canvas .hljs-meta { color: var(--cc-attr); }
+.code-canvas .hljs-type, .code-canvas .hljs-params, .code-canvas .hljs-symbol, .code-canvas .hljs-bullet { color: var(--cc-type); }
+.code-canvas header { border-color: var(--cc-line); }
+.code-canvas header button, .code-canvas header span { color: var(--cc-fg); }
+@media (prefers-color-scheme: dark) { :root:not(.light) .code-canvas { --cc-bg:#1f1f1f; --cc-fg:#e6edf3; --cc-line:#3a3a3a; --cc-com:#8b949e; --cc-kw:#ff7b72; --cc-str:#a5d6ff; --cc-fn:#d2a8ff; --cc-tag:#7ee787; --cc-attr:#79c0ff; --cc-type:#ffa657; } }
