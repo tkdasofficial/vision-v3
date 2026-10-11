@@ -83,7 +83,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
       if (bad) { job.warn(`${f.name} failed verification (${bad}) and was not saved.`); job.markCurrent("warn"); continue; }
       const ref = await save(f);
       artifacts.push({ id: ref.id, name: f.name, size: f.bytes.length, mime: f.mime });
-      ctx.files.push(f);
+      ctx.files.unshift(f); // outputs go first so tools default to the user's own attachments (still pickable by name)
     }
     if (out.text) ctx.lastText = out.text;
     results.push({ tool: tool.id, category: tool.category, text: out.text?.slice(0, 30000), data: safeData(out.data), preview: out.preview, artifacts });
