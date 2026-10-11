@@ -63,8 +63,8 @@ export class JobRun {
   private closeLast(outcome: "ok" | "warn" | "error") { const cur = this.steps[this.steps.length - 1]; if (cur && !cur.endedAt) { cur.endedAt = now(); cur.outcome ??= outcome; } }
 
   async saveArtifact(name: string, mime: string, bytes: Uint8Array, kind: ArtifactRef["kind"] | "source"): Promise<ArtifactRef> {
-    const { storePrivate } = await import("@/lib/cloud/drive.server");
-    const driveId = await storePrivate(name, mime, bytes);
+    const { putArtifact } = await import("./artifact-store.server");
+    const driveId = await putArtifact(name, mime, bytes);
     const id = crypto.randomUUID();
     const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>))].map((b) => b.toString(16).padStart(2, "0")).join("");
     await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
@@ -148,6 +148,6 @@ export async function getArtifact(userId: string, id: string) {
 export async function cleanupExpired(userId: string) {
   const rows = await d1<any>("SELECT id, drive_file_id FROM job_artifacts WHERE user_id = ? AND expires_at <= ? LIMIT 5", [userId, now()]);
   if (!rows.length) return;
-  const { deletePrivate } = await import("@/lib/cloud/drive.server");
-  for (const r of rows) { await deletePrivate(r.drive_file_id); await d1("DELETE FROM job_artifacts WHERE id = ?", [r.id]); }
+  const { deleteArtifactBytes } = await import("./artifact-store.server");
+  for (const r of rows) { await deleteArtifactBytes(r.drive_file_id).catch(() => undefined); await d1("DELETE FROM job_artifacts WHERE id = ?", [r.id]); }
 }

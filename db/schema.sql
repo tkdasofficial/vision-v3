@@ -70,3 +70,4 @@ CREATE INDEX IF NOT EXISTS idx_jobs_user ON jobs(user_id, created_at);
 CREATE TABLE IF NOT EXISTS job_artifacts (id TEXT PRIMARY KEY, job_id TEXT NOT NULL, user_id TEXT NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL, size INTEGER NOT NULL, sha256 TEXT NOT NULL, drive_file_id TEXT NOT NULL, kind TEXT NOT NULL, expires_at TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS idx_job_artifacts_job ON job_artifacts(job_id);
 CREATE INDEX IF NOT EXISTS idx_job_artifacts_expiry ON job_artifacts(user_id, expires_at);
+CREATE TABLE IF NOT EXISTS artifact_chunks (artifact_key TEXT NOT NULL, idx INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (artifact_key, idx));

@@ -36,6 +36,6 @@ async function loadSource(userId: string, artifactId: string): Promise<Uint8Arra
   const { d1 } = await import("@/lib/cloud/d1.server");
   const rows = await d1<any>("SELECT drive_file_id, expires_at FROM job_artifacts WHERE id = ? AND user_id = ? AND kind = 'source'", [artifactId, userId]);
   if (!rows[0] || Date.parse(rows[0].expires_at) <= Date.now()) throw new Error("The original ZIP has expired. Please upload it again.");
-  const { readPrivate } = await import("@/lib/cloud/drive.server");
-  return new Uint8Array(await (await readPrivate(rows[0].drive_file_id)).arrayBuffer());
+  const { getArtifactBytes } = await import("./artifact-store.server");
+  return getArtifactBytes(rows[0].drive_file_id);
 }

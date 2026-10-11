@@ -11,10 +11,10 @@ export const Route = createFileRoute("/api/artifacts/$artifactId")({
         const { getArtifact } = await import("@/lib/jobs/jobs.server");
         const a = await getArtifact(caller.user.id, params.artifactId);
         if (!a || a.kind === "source") return Response.json({ error: "This download has expired or does not exist." }, { status: 404 });
-        const { readPrivate } = await import("@/lib/cloud/drive.server");
-        const res = await readPrivate(a.drive_file_id);
+        const { getArtifactBytes } = await import("@/lib/jobs/artifact-store.server");
+        const bytes = await getArtifactBytes(a.drive_file_id);
         const safe = a.name.replace(/[^\w.\-]+/g, "_");
-        return new Response(res.body, {
+        return new Response(bytes as Uint8Array<ArrayBuffer>, {
           headers: {
             "Content-Type": a.mime,
             "Content-Disposition": `attachment; filename="${safe}"`,
