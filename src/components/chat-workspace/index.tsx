@@ -760,7 +760,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     // Analysis runs on the server as a tracked job; the card shows its real status.
     const zipJobId = crypto.randomUUID();
     const msgId = `job-${zipJobId}`;
-    trackJob(jobId, true);
+    trackJob(zipJobId, true);
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `Couldn't analyze **${file.name}**: ${job.error ?? "unknown error"}` : `Analysis of **${file.name}**`;
       const msg = { id: msgId, role: "assistant" as const, content, timestamp: new Date(), job };
