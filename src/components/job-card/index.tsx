@@ -3,10 +3,12 @@ import { CheckCircle2, AlertTriangle, XCircle, Loader2, Download, RotateCcw, Squ
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { JOB_STATUSES, isTerminal, type JobView } from "@/lib/builder/statuses";
 import { cancelJob, downloadUrl, fetchJob } from "@/lib/builder/jobs-client";
 
-const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis" } as const;
+const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis", agent_task: "Task" } as const;
 const fmt = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
 function StatusIcon({ status }: { status: JobView["status"] }) {
@@ -64,6 +66,22 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
             <Button key={a.id} asChild size="sm" variant="secondary" className="rounded-full">
               <a href={downloadUrl(a.id)} download={a.name}><Download className="mr-1.5 h-3.5 w-3.5" />{a.name} <span className="ml-1 text-muted-foreground">{fmt(a.size)}</span></a>
             </Button>
+          ))}
+        </div>
+      )}
+
+      {job.type === "agent_task" && (r.answer || r.steps?.length) && (
+        <div className="mt-3 space-y-3">
+          {r.answer && !r.steps?.length && <div className="prose prose-sm max-w-none text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{r.answer}</ReactMarkdown></div>}
+          {r.steps?.map((s: any, i: number) => (
+            <div key={i} className="space-y-2">
+              {r.steps.length > 1 && <p className="text-xs font-medium text-muted-foreground">{i + 1}. {s.category} · {s.tool}</p>}
+              {s.error && <p className="text-xs text-destructive">{s.error}</p>}
+              {s.preview?.kind === "svg" && <img src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt={`${s.tool} result`} className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />}
+              {s.text && (i === r.steps.length - 1 || s.preview?.kind !== "markdown") && (
+                <div className="prose prose-sm max-h-[28rem] max-w-none overflow-auto rounded-xl bg-muted p-3 text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{(s.preview?.kind === "markdown" ? s.preview.content : s.text).slice(0, 20000)}</ReactMarkdown></div>
+              )}
+            </div>
           ))}
         </div>
       )}
