@@ -1,30 +1,6 @@
-# Vision workspace
-- [x] Rename all visible branding to Vision.
-- [x] Add Images, Videos, Library, Projects, and Integrations sidebar pages.
-- [x] Add creation-only workspaces with eight square scrollable references.
-- [x] Add applicable Library file-type filters.
-- [x] Update Projects header and add a separate creation page.
-- [x] Set AUTH_ORIGIN secret to https://vision-auth.tusharkantidasofficial.workers.dev
-- [x] Wire Google/GitHub OAuth using saved GOOGLE_/GITHUB_ client secrets (env names already matched)
-- [x] Google Drive storage: uploads go to Drive per-type sub-folders; records + links in D1 (user_files)
-- [x] SMTP via GOOGLE_APP_PASSWORD: 8-digit OTP verification, /auth/verify page, resend + rate limits
-- [ ] Point workers.dev proxy at the published app URL (needs app published)
-- [ ] End-to-end check of real Google/GitHub sign-in and a real file upload after publish
-- [x] Security system: signup risk pipeline (email + OAuth), anti-bot hints, CF-IP network limits, OTP keyed hashing/atomic consume, session rotation + cap, CSRF checks, one-time welcome credit ledger, audit/redaction, chat/upload limits
-- [x] Central Cloudflare auth gateway (vision-auth Worker): Google/GitHub OAuth, worker-only credentials, allowlisted return origins, signed single-use assertions
-- [ ] Add gateway callback URLs in Google Cloud Console and GitHub OAuth App (user action)
-- [ ] Real Google/GitHub sign-in check after dashboards are updated
-- [ ] Add the published/custom domain to ALLOWED_RETURN_ORIGINS once published
-- [x] Audit: AI routing per task verified live (fast/deep/code/image); deep answers self-check
-- [x] Audit: fixed endless-redirect loop in page navigation helper
-- [ ] Plans & Pricing shows no plans — needs real plan names/prices from user
-- [ ] Kimi K2.7 Code needs a paid Cloudflare plan (Qwen coder used meanwhile)
-- [x] Settings directory + 9 sub-pages, saved prefs applied to theme/AI
-- [x] Research web search: Wikipedia + DuckDuckGo quick answers, SearXNG when configured
-- [ ] Two-step sign-in (authenticator app / email code) — not built yet
-- [ ] Broad web search needs a SearXNG instance or a Brave/Tavily key from user
-- [x] PRD phase 1 (runs inside chat; no separate page): code file export, multi-file project generation (HTML site, React TS/JS Vite, Node, Python) with static checks + bounded repair, verified ZIP export, safe ZIP upload/analysis/docs, persistent jobs with real statuses, cancel/retry, stale recovery, owner-only expiring downloads, tests
-- [ ] Connect Google Drive for job downloads (needs GOOGLE_CLIENT_ID/SECRET, GOOGLE_REFRESH_TOKEN, GOOGLE_DRIVE_FOLDER_ID in this project) — D1 store used meanwhile
-- [ ] Real installs/builds/tests for generated projects (needs a code sandbox service, e.g. E2B, or Cloudflare Containers)
-- [ ] PRD phase 2: remaining tool categories (OCR, document conversion, data/CSV, search & indexing, approvals, etc.)
-- [ ] Remove or rewire leftover chat features still calling old addresses (file creator, agent planner, UI design generator)
+# Roadmap
+- [x] Chat agent with backend tools across PRD categories (documents, PDF, data, charts, OCR, audio, QR, security, web, ZIP, code)
+- [ ] Video processing on the server — blocked: needs an external media service (Workers can't run FFmpeg)
+- [ ] Raster image editing (resize/convert/filters) on the server — blocked: needs an image service (e.g. Cloudflare Images)
+- [ ] Barcodes other than QR — not built yet
+- [ ] Real installs/builds/tests for generated projects — blocked: needs a code sandbox
