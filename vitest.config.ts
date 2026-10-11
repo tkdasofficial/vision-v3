@@ -11,6 +11,6 @@ export default defineConfig({
     include: ["src/**/*.{test,spec}.{ts,tsx}", "security/**/*.test.ts"],
   },
   resolve: {
-    alias: { "@": path.resolve(__dirname, "./src") },
+    alias: { "@": path.resolve(__dirname, "./src"), "cloudflare:sockets": path.resolve(__dirname, "./src/test/stubs/cloudflare-sockets.ts") },
   },
 });
