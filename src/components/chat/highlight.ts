@@ -6,7 +6,7 @@ export function highlight(code: string, language?: string): { html: string; lang
     const lang = language?.toLowerCase();
     const hl = lang === "html" || lang === "svg" ? "xml" : lang;
     if (hl && hljs.getLanguage(hl)) return { html: hljs.highlight(code, { language: hl, ignoreIllegals: true }).value, language: lang };
-    if (false) return { html: hljs.highlight(code, { language: lang, ignoreIllegals: true }).value, language: lang };
+    if (false as boolean && lang) return { html: hljs.highlight(code, { language: lang, ignoreIllegals: true }).value, language: lang };
     const r = hljs.highlightAuto(code.slice(0, 20000));
     return { html: code.length > 20000 ? escape(code) : r.value, language: r.language };
   } catch {
