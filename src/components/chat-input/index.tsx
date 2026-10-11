@@ -223,25 +223,23 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
 
           {/* Action row */}
           <PromptInputFooter className="flex items-center justify-between gap-2 px-2 pb-2 pt-0">
-            <div className="flex items-center gap-2">
+            <div className="flex min-w-0 items-center gap-2">
               <input
                 ref={fileInputRef}
                 type="file"
-                accept={creationMode ? "image/*" : "image/*,.zip,application/zip,video/*,audio/*,.txt,.pdf,.html,.md,.csv,.json,.xml,.mp4,.webm,.avi,.mov,.mkv,.mp3,.wav,.ogg,.aac,.flac,.m4a,.bmp,.gif,.ico,.svg,.webp"}
+                accept={ACCEPT.image}
                 onChange={handleFileSelect}
                 className="hidden"
               />
-               <Button
-                 variant="ghost"
-                 size="icon"
-                 aria-label="Attach file"
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                 className="size-8 shrink-0 rounded-full p-0 border border-border text-muted-foreground hover:text-foreground hover:bg-accent [&_svg]:size-[18px]"
-                title="Attach image"
-              >
-                <Paperclip className="w-[18px] h-[18px]" />
-               </Button>
+              <AttachMenu
+                imageOnly={!!creationMode}
+                onPick={(kind) => {
+                  const el = fileInputRef.current;
+                  if (!el) return;
+                  el.accept = ACCEPT[kind];
+                  el.click();
+                }}
+              />
               {!creationMode && <ModeSelector selectedMode={taskMode} onModeChange={setTaskMode} />}
             </div>
 
