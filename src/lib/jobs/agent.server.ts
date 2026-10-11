@@ -85,7 +85,8 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
       artifacts.push({ id: ref.id, name: f.name, size: f.bytes.length, mime: f.mime });
       ctx.files.unshift(f); // outputs go first so tools default to the user's own attachments (still pickable by name)
     }
-    if (out.text) ctx.lastText = out.text;
+    if (out.text && out.preview?.kind !== "svg") ctx.lastText = out.text;
+    if (out.table) ctx.lastTable = out.table;
     results.push({ tool: tool.id, category: tool.category, text: out.text?.slice(0, 30000), data: safeData(out.data), preview: out.preview, artifacts });
   }
   await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply });
