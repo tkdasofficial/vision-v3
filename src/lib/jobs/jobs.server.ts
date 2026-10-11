@@ -8,11 +8,11 @@ const now = () => new Date().toISOString();
 
 export class CancelledError extends Error { constructor() { super("Cancelled"); } }
 
-export async function createJob(id: string, userId: string, type: JobType, input: unknown, attempt = 1) {
+export async function createJob(id: string, userId: string, type: JobType, input: unknown, attempt = 1, sessionId: string | null = null) {
   if (!ID_RE.test(id)) throw new Error("Invalid job id");
   const t = now();
-  await d1("INSERT INTO jobs (id, user_id, type, status, detail, input, attempt, steps, created_at, updated_at) VALUES (?, ?, ?, 'queued', 'Accepted', ?, ?, ?, ?, ?)",
-    [id, userId, type, JSON.stringify(input ?? {}), attempt, JSON.stringify([{ status: "queued", detail: "Accepted", at: t, endedAt: t, outcome: "ok" }]), t, t]);
+  await d1("INSERT INTO jobs (id, user_id, type, status, detail, input, attempt, session_id, steps, created_at, updated_at) VALUES (?, ?, ?, 'queued', 'Accepted', ?, ?, ?, ?, ?, ?)",
+    [id, userId, type, JSON.stringify(input ?? {}), attempt, sessionId, JSON.stringify([{ status: "queued", detail: "Accepted", at: t, endedAt: t, outcome: "ok" }]), t, t]);
   return new JobRun(id, userId);
 }
 
@@ -83,7 +83,7 @@ function toView(r: any, artifacts: ArtifactRef[]): JobView {
   return {
     id: r.id, type: r.type, status: r.status, detail: r.detail ?? "", progress: r.progress ?? null,
     steps: JSON.parse(r.steps || "[]"), warnings: JSON.parse(r.warnings || "[]"), error: r.error ?? null,
-    result: r.result ? JSON.parse(r.result) : null, artifacts, createdAt: r.created_at, updatedAt: r.updated_at,
+    result: r.result ? JSON.parse(r.result) : null, artifacts, sessionId: r.session_id ?? null, createdAt: r.created_at, updatedAt: r.updated_at,
   };
 }
 
@@ -115,15 +115,17 @@ export async function getJob(userId: string, id: string): Promise<JobView | null
   return toView(r, (await artifactsFor([id], userId)).get(id) ?? []);
 }
 
-export async function getJobInput(userId: string, id: string): Promise<{ type: JobType; input: any; attempt: number; status: JobStatus } | null> {
-  const rows = await d1<any>("SELECT type, input, attempt, status, updated_at FROM jobs WHERE id = ? AND user_id = ?", [id, userId]);
+export async function getJobInput(userId: string, id: string): Promise<{ type: JobType; input: any; attempt: number; status: JobStatus; sessionId: string | null } | null> {
+  const rows = await d1<any>("SELECT type, input, attempt, status, updated_at, session_id FROM jobs WHERE id = ? AND user_id = ?", [id, userId]);
   if (!rows[0]) return null;
-  return { type: rows[0].type, input: JSON.parse(rows[0].input || "{}"), attempt: rows[0].attempt ?? 1, status: recoveredStatus(rows[0].status, rows[0].updated_at) };
+  return { type: rows[0].type, input: JSON.parse(rows[0].input || "{}"), attempt: rows[0].attempt ?? 1, status: recoveredStatus(rows[0].status, rows[0].updated_at), sessionId: rows[0].session_id ?? null };
 }
 
-export async function listJobs(userId: string, limit = 30): Promise<JobView[]> {
+export async function listJobs(userId: string, limit = 30, sessionId?: string): Promise<JobView[]> {
   await cleanupExpired(userId).catch(() => undefined);
-  const rows = await d1<any>("SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", [userId, limit]);
+  const rows = sessionId
+    ? await d1<any>("SELECT * FROM jobs WHERE user_id = ? AND session_id = ? ORDER BY created_at ASC LIMIT ?", [userId, sessionId, limit])
+    : await d1<any>("SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?", [userId, limit]);
   const recovered = await Promise.all(rows.map(recover));
   const arts = await artifactsFor(recovered.map((r) => r.id), userId);
   return recovered.map((r) => toView(r, arts.get(r.id) ?? []));

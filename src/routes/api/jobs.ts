@@ -6,12 +6,14 @@ const TYPES = ["code_export", "project_generate", "zip_analyze"] as const;
 export const Route = createFileRoute("/api/jobs")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }) => {
         const { getCaller } = await import("@/lib/cloud/auth.server");
         const caller = await getCaller();
         if (!caller) return Response.json({ error: "Please sign in." }, { status: 401 });
         const { listJobs } = await import("@/lib/jobs/jobs.server");
-        return Response.json({ jobs: await listJobs(caller.user.id) }, { headers: { "Cache-Control": "no-store" } });
+        const session = new URL(request.url).searchParams.get("session");
+        const sid = session && /^[\w-]{1,64}$/.test(session) ? session : undefined;
+        return Response.json({ jobs: await listJobs(caller.user.id, 30, sid) }, { headers: { "Cache-Control": "no-store" } });
       },
       POST: async ({ request }) => {
         const { getCaller } = await import("@/lib/cloud/auth.server");
@@ -31,11 +33,12 @@ export const Route = createFileRoute("/api/jobs")({
           const form = await request.formData().catch(() => null);
           const file = form?.get("file");
           const id = String(form?.get("id") ?? "");
+          const sessionId = sessionOf(form?.get("sessionId"));
           if (!ID_RE.test(id)) return Response.json({ error: "Invalid job id." }, { status: 400 });
           if (!(file instanceof File)) return Response.json({ error: "No file provided." }, { status: 400 });
           if (file.size > 25 * 1024 * 1024) return Response.json({ error: "ZIP files up to 25 MB are supported." }, { status: 413 });
           if (!/\.zip$/i.test(file.name)) return Response.json({ error: "Please upload a .zip file." }, { status: 400 });
-          const job = await startJob(caller.user.id, id, "zip_analyze", { fileName: file.name.slice(0, 120), bytes: new Uint8Array(await file.arrayBuffer()) });
+          const job = await startJob(caller.user.id, id, "zip_analyze", { fileName: file.name.slice(0, 120), bytes: new Uint8Array(await file.arrayBuffer()) }, 1, sessionId);
           return Response.json({ job });
         }
         const body: any = await request.json().catch(() => null);
@@ -45,7 +48,7 @@ export const Route = createFileRoute("/api/jobs")({
           ? { prompt: str(i.prompt, 8000), language: str(i.language, 30), filename: str(i.filename, 120), code: str(i.code, 500_000) }
           : { prompt: str(i.prompt, 8000) ?? "", stack: str(i.stack, 30), name: str(i.name, 60) };
         try {
-          const job = await startJob(caller.user.id, body.id, body.type, input);
+          const job = await startJob(caller.user.id, body.id, body.type, input, 1, sessionOf(body.sessionId));
           return Response.json({ job });
         } catch (e: any) {
           return Response.json({ error: /UNIQUE/i.test(String(e?.message)) ? "This task already exists." : "Could not start the task." }, { status: 409 });
@@ -54,6 +57,10 @@ export const Route = createFileRoute("/api/jobs")({
     },
   },
 });
+
+function sessionOf(v: unknown): string | null {
+  return typeof v === "string" && /^[\w-]{1,64}$/.test(v) ? v : null;
+}
 
 function str(v: unknown, max: number): any {
   return typeof v === "string" && v.length ? v.slice(0, max) : undefined;

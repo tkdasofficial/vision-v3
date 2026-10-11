@@ -14,12 +14,12 @@ export async function fetchJob(id: string): Promise<JobView | null> {
   return (await json(res)).job;
 }
 
-export async function listJobs(): Promise<JobView[]> {
-  return (await json(await fetch("/api/jobs", { credentials: "include", cache: "no-store" }))).jobs;
+export async function listJobs(sessionId?: string): Promise<JobView[]> {
+  return (await json(await fetch(sessionId ? `/api/jobs?session=${encodeURIComponent(sessionId)}` : "/api/jobs", { credentials: "include", cache: "no-store" }))).jobs;
 }
 
 /** Starts a job; `onUpdate` receives each polled status while the server works. */
-export async function runJob(type: JobType, payload: { input?: unknown; file?: File }, onUpdate: (j: JobView) => void, existingId?: string): Promise<JobView> {
+export async function runJob(type: JobType, payload: { input?: unknown; file?: File; sessionId?: string | null }, onUpdate: (j: JobView) => void, existingId?: string): Promise<JobView> {
   const id = existingId ?? crypto.randomUUID();
   let done = false;
   const poll = async () => {
@@ -36,9 +36,10 @@ export async function runJob(type: JobType, payload: { input?: unknown; file?: F
     if (payload.file) {
       const fd = new FormData();
       fd.set("id", id); fd.set("file", payload.file);
+      if (payload.sessionId) fd.set("sessionId", payload.sessionId);
       res = await fetch("/api/jobs", { method: "POST", body: fd, credentials: "include" });
     } else {
-      res = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, type, input: payload.input }), credentials: "include" });
+      res = await fetch("/api/jobs", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id, type, input: payload.input, sessionId: payload.sessionId ?? undefined }), credentials: "include" });
     }
     const job: JobView = (await json(res)).job;
     done = true; onUpdate(job); return job;
