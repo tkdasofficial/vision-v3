@@ -323,8 +323,10 @@ export const TOOLS: Tool[] = [
     let labels: string[] = p?.labels, values: number[] = p?.values?.map(Number);
     if (!labels?.length) {
       const rows = await tableOf(c, p); const head = rows[0].map(String);
-      const li = p?.label_column ? head.findIndex((h) => h.toLowerCase() === String(p.label_column).toLowerCase()) : 0;
-      const vi = p?.value_column ? head.findIndex((h) => h.toLowerCase() === String(p.value_column).toLowerCase()) : head.findIndex((_, i) => i !== li && rows.slice(1).every((r) => Number.isFinite(Number(r[i]))));
+      const find = (name: unknown) => { if (!name) return -1; const n = String(name).toLowerCase(); let i = head.findIndex((h) => h.toLowerCase() === n); if (i < 0) i = head.findIndex((h) => h.toLowerCase().includes(n) || n.includes(h.toLowerCase())); return i; };
+      const isNum = (i: number) => rows.slice(1).every((r) => Number.isFinite(Number(String(r[i]).replace(/,/g, ""))));
+      let li = find(p?.label_column); if (li < 0) li = Math.max(0, head.findIndex((_, i) => !isNum(i)));
+      let vi = find(p?.value_column); if (vi < 0 || !isNum(vi)) vi = head.findIndex((_, i) => i !== li && isNum(i));
       if (li < 0 || vi < 0) throw new Error(`Pick columns to chart. Columns: ${head.join(", ")}`);
       const body = rows.slice(1, 61); labels = body.map((r) => String(r[li])); values = body.map((r) => Number(String(r[vi]).replace(/,/g, "")));
       p = { ...p, title: p?.title || `${head[vi]} by ${head[li]}` };
