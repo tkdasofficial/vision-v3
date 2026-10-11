@@ -17,6 +17,7 @@
     "rolldown": "1.2.1"
   },
   "dependencies": {
+    "@babel/parser": "^8.0.7",
     "@ffmpeg/ffmpeg": "^0.12.15",
     "@ffmpeg/util": "^0.12.2",
     "@hookform/resolvers": "^5.2.2",
@@ -59,6 +60,7 @@
     "date-fns": "^4.1.0",
     "embla-carousel-react": "^8.6.0",
     "exceljs": "^4.4.0",
+    "fflate": "^0.8.3",
     "input-otp": "^1.4.2",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.575.0",
