@@ -227,6 +227,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         // Place each task after the question that triggered it: allow a few seconds of slack.
         const SLACK = 8000;
         const key = (m: ChatMessageType) => new Date(m.timestamp).getTime() + (m.job ? SLACK : 0);
+        console.log("JOBMERGE", JSON.stringify([...prev, ...missing].map((m) => [m.role, String(m.timestamp), !!m.job])));
         return [...prev, ...missing].map((m, i) => ({ m, i })).sort((a, b) => key(a.m) - key(b.m) || a.i - b.i).map((x) => x.m);
       });
     }).catch(() => undefined);
