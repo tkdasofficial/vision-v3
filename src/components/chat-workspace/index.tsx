@@ -251,7 +251,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     for (const id of activeJobs) cancelJob(id).catch(() => undefined).finally(() => trackJob(id, false));
   }, [activeJobs, trackJob]);
 
-  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => {
+  const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode, extras?: { typed: string; pasted: PastedBlock[] }) => {
     if (creationMode) {
       setCreationError(AI_FEATURE_UNAVAILABLE);
       return;
@@ -263,6 +263,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       timestamp: new Date(),
       toolId: tool?.id,
       imageUrl: imageData ? `data:${imageData.mimeType};base64,${imageData.base64}` : undefined,
+      ...(extras?.pasted.length ? { pasted: extras.pasted, typed: extras.typed } : {}),
     };
     setMessages((prev) => [...prev, userMsg]);
 
@@ -731,8 +732,13 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   }, [tool, chatId, addChat, messages, updateChatMessages, dispatchBgTask, isIncognito, creationMode]);
 
   /** Attached documents/data/audio plus an instruction → one backend agent task in this chat. */
-  const handleSendFiles = useCallback(async (content: string, files: File[]) => {
-    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: `${content}\n\n📎 ${files.map((f) => f.name).join(", ")}`, timestamp: new Date() }]);
+  const handleSendFiles = useCallback(async (content: string, files: File[], extras?: { typed: string; pasted: PastedBlock[] }) => {
+    const kindOf = (f: File): MessageAttachment["kind"] => f.type.startsWith("image/") ? "image" : f.type.startsWith("video/") ? "video" : f.type.startsWith("audio/") ? "audio" : "file";
+    setMessages((prev) => [...prev, {
+      id: Date.now().toString(), role: "user", content, timestamp: new Date(),
+      attachments: files.map((f) => ({ name: f.name, kind: kindOf(f), mime: f.type || undefined, size: f.size })),
+      ...(extras?.pasted.length ? { pasted: extras.pasted, typed: extras.typed } : {}),
+    }]);
     let sid: string | null = isIncognito ? null : chatId;
     if (!isIncognito && !chatId) {
       const title = content.slice(0, 60) || files[0].name;
