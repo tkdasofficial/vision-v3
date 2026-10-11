@@ -357,6 +357,14 @@ export const TOOLS: Tool[] = [
     const QR = await import("qrcode"); const svg = await (QR.default ?? QR).toString(String(p.content).slice(0, 2000), { type: "svg", margin: 2, errorCorrectionLevel: "M" });
     return { text: `QR code for: ${String(p.content).slice(0, 120)}`, preview: { kind: "svg", content: svg }, files: [txt("qr-code.svg", svg, "image/svg+xml")] };
   } },
+  { id: "barcode", category: "QR & barcodes", desc: "Make a linear barcode (SVG) — Code 128, Code 39, EAN-13, EAN-8, UPC-A or UPC-E; invalid values are reported, never altered. Not for QR codes", params: '{"format": "code128"|"code39"|"ean13"|"ean8"|"upca"|"upce", "value": string}', run: async (_c, p) => {
+    const B = await import("./barcode");
+    const format = B.normalizeFormat(p?.format ?? "code128");
+    if (!format) throw new Error(`Unsupported barcode format "${p?.format}". Use Code 128, Code 39, EAN-13, EAN-8, UPC-A or UPC-E.`);
+    const value = String(p?.value ?? p?.content ?? "");
+    const svg = B.barcodeSvg(format, value);
+    return { text: `${B.BARCODE_LABELS[format]} barcode for \`${value.slice(0, 80)}\``, preview: { kind: "svg", content: svg }, files: [txt(`barcode-${format}.svg`, svg, "image/svg+xml")] };
+  } },
   // Security & encoding
   { id: "hash", category: "Security & privacy", desc: "SHA-1/256/384/512 checksum of text or every attached file; optionally verify against an expected hash", params: '{"algorithm"?: string, "text"?: string, "expected"?: string}', run: async (c, p) => {
     const items = p?.text ? [{ name: "text", bytes: strToU8(p.text) }] : c.files.length ? c.files : c.lastText ? [{ name: "previous result", bytes: strToU8(c.lastText) }] : [];
