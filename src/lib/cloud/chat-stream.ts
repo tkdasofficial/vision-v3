@@ -7,12 +7,13 @@ export async function streamChat(
   messages: { role: string; content: any }[],
   onText: (full: string) => void,
   toolId?: string,
-  opts: { mode?: ChatMode; onMeta?: (m: ChatMeta) => void } = {},
+  opts: { mode?: ChatMode; onMeta?: (m: ChatMeta) => void; signal?: AbortSignal } = {},
 ): Promise<string> {
   const resp = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, toolId, mode: opts.mode ?? "default" }),
+    signal: opts.signal,
   });
   if (!resp.ok || !resp.body) {
     const data = await resp.json().catch(() => ({}));
@@ -28,7 +29,9 @@ export async function streamChat(
   let buf = "";
   let text = "";
   for (;;) {
-    const { done, value } = await reader.read();
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try { chunk = await reader.read(); } catch (e) { if (opts.signal?.aborted) break; throw e; }
+    const { done, value } = chunk;
     if (done) break;
     buf += decoder.decode(value, { stream: true });
     let idx: number;
