@@ -1,3 +1,4 @@
+import { RefreshCw, Search as SearchIcon, FolderOpen as FolderOpenIcon, Folders } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/page-header";
 import { ArrowUpRight, FileText, MessageSquare, Search as SearchIcon, Sparkles } from "lucide-react";
@@ -70,7 +71,7 @@ export default function Search({ library = false }: { library?: boolean }) {
     <div className="flex h-[100dvh] overflow-hidden bg-background">
       <DesktopSidebar {...sidebarProps} />
       <main className="flex min-w-0 flex-1 flex-col">
-        <PageHeader title={library ? "Library" : "Search"} backTo="/chat" className="sm:px-8" />
+        <PageHeader title={library ? "Library" : "Search"} backTo="/chat" className="sm:px-8" menu={[{ label: "Refresh", icon: RefreshCw, onSelect: () => window.location.reload() }, { label: library ? "Search everything" : "Open library", icon: library ? SearchIcon : FolderOpenIcon, onSelect: () => navigate(library ? "/search" : "/library") }, { label: "Projects", icon: Folders, onSelect: () => navigate("/projects") }]} />
         <div className="shrink-0 overflow-x-auto px-4 pb-3 sm:px-8">
             <Tabs value={library ? assetType : category} onValueChange={(value) => library ? setAssetType(value as AssetType | "all") : setCategory(value as SearchCategory | "all")}>
               <TabsList aria-label={library ? "Library file types" : "Search categories"} className="flex h-auto w-max flex-nowrap justify-start gap-2 bg-transparent p-0">

@@ -1,3 +1,4 @@
+import { RefreshCw, CircleHelp } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Mail, Youtube, Cloud, Calendar, Github, MessageSquare, FileText, Plus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ const services = [
 export default function Plugins() {
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => services.filter((s) => `${s.name} ${s.description}`.toLowerCase().includes(query.toLowerCase())), [query]);
-  return <WorkspaceShell title="Plugins" backTo="/chat" footer={<BottomSearch value={query} onChange={setQuery} placeholder="Search plugins" />}>
+  return <WorkspaceShell title="Plugins" backTo="/chat" menu={[{ label: "Refresh", icon: RefreshCw, onSelect: () => window.location.reload() }, { label: "Help & FAQ", icon: CircleHelp, onSelect: () => window.location.assign("/help/faq") }]} footer={<BottomSearch value={query} onChange={setQuery} placeholder="Search plugins" />}>
     <h2 className="mb-3 flex items-center gap-1 text-lg font-semibold text-muted-foreground">Popular <ChevronRight className="size-5" /></h2>
     <div className="space-y-1">
       {filtered.map(({ name, description, icon: Icon }) => <div key={name} className="flex items-center gap-4 py-3">

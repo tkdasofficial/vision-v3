@@ -1,3 +1,4 @@
+import { RefreshCw, Bell } from "lucide-react";
 import { useNavigate } from "@/lib/router-compat";
 import PageHeader from "@/components/page-header";
 import { ArrowLeft, Bell, Inbox as InboxIcon } from "lucide-react";
@@ -55,7 +56,7 @@ const Inbox = () => {
 
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col">
-      <PageHeader title="Inbox" />
+      <PageHeader title="Inbox" menu={[{ label: "Refresh", icon: RefreshCw, onSelect: () => window.location.reload() }, { label: "Notification settings", icon: Bell, onSelect: () => window.location.assign("/settings/notifications") }]} />
 
       <div className="flex-1 px-6 pt-2 pb-12 overflow-y-auto">
         <div className="max-w-lg mx-auto space-y-3">
