@@ -1,0 +1,5 @@
+# Builder jobs
+
+- Builder jobs (code export, project generation, ZIP analysis) run server-side in `src/lib/jobs/` with pure logic in `src/lib/builder/` and archive safety rules in `security/archive/zip-guard.ts`; state lives in D1 `jobs`/`job_artifacts`, the browser starts a job via `/api/jobs` and polls `/api/jobs/$jobId`, downloads go through owner-only expiring `/api/artifacts/$artifactId`. Why: statuses come from real backend steps, stale running jobs are recovered as failed, and nothing heavy or unsafe runs in the browser.
+- Job artifacts are stored privately via `src/lib/jobs/artifact-store.server.ts`: Google Drive when its keys are set, otherwise chunked rows in D1 `artifact_chunks`. Why: downloads work before Drive is connected and switch over without code changes.
+- Generated projects are validated statically only (required files, JSON, Babel syntax parse, imports, HTML links, CSS braces) with at most 2 AI repair passes; installs/builds/tests are reported as not run. Why: the Cloudflare runtime cannot run package managers or compilers, and results must never claim a build that did not happen.
