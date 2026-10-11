@@ -37,7 +37,6 @@ type Props = {
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 const CODE_GEN_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/code-generator`;
-const FILE_CREATOR_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/file-creator`;
 const AGENT_PLANNER_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/agent-planner`;
 
 const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalChatId, onChatCreated, isIncognito = false, onIncognitoChat, creationMode }: Props) => {
@@ -469,46 +468,13 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
 
     if (isFileCreate && !isAgent) {
+      // Documents are written on the server by the task agent; the file and download appear in this message.
       const fmMatch = fileFormatMatch?.[1]?.toLowerCase();
       const isExcelKeyword = /\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
-      const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "txt");
-
-      try {
-        dispatchBgTask("file", { prompt: content, format: detectedFormat }, chatId || undefined).catch(() => {});
-        const resp = await fetch(FILE_CREATOR_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({ prompt: content, format: detectedFormat }),
-        });
-
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || "File creation failed");
-
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.explanation || `Here's your generated **${data.fileName}** file:`,
-          timestamp: new Date(),
-          generatedFile: {
-            fileName: data.fileName,
-            content: data.content,
-            mimeType: data.mimeType,
-            format: data.format,
-          },
-        }]);
-      } catch (e: any) {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: `Sorry, file creation failed: ${e.message}`,
-          timestamp: new Date(),
-        }]);
-      }
-      clearTimeout(phaseTimer);
+      const detectedFormat = isExcelKeyword && (!fmMatch || ["excel","spreadsheet","sheet","workbook"].includes(fmMatch)) ? "xlsx" : (fmMatch || "");
+      clearPhaseTimers();
       setIsTyping(false);
+      await runInlineJob("agent_task", { prompt: detectedFormat ? `${content}\n\n(Save the result as a .${detectedFormat} file.)` : content }, sessionId);
       return;
     }
 
