@@ -1,6 +1,6 @@
 // Chat agent: understand → plan → run tools → verify outputs → repair once per step → answer.
 import { TOOL_MAP, catalogText, verifyOutput, type ToolCtx, type WorkFile } from "@/lib/tools/registry.server";
-import { complete } from "./llm.server";
+import { complete, PLANNING } from "./llm.server";
 import type { JobRun } from "./jobs.server";
 
 export const MAX_STEPS = 6;
@@ -14,8 +14,9 @@ export function parsePlan(text: string, known: (id: string) => boolean): Plan {
   const j = firstJsonObject(t);
   if (!j) throw new Error("no JSON object");
   const steps = (Array.isArray(j.steps) ? j.steps : []).filter((s: any) => s && typeof s.tool === "string").slice(0, MAX_STEPS);
-  const unknown = steps.find((s: any) => !known(s.tool));
-  if (unknown) throw new Error(`unknown tool ${unknown.tool}`);
+  const unknown = steps.filter((s: any) => !known(s.tool));
+  if (unknown.length && unknown.length === steps.length) throw new Error(`unknown tool ${unknown[0].tool}`);
+  if (unknown.length) throw new Error(`unknown tool ${unknown[0].tool}; only use the listed tool ids`);
   return { steps: steps.map((s: any) => ({ tool: s.tool, params: s.params && typeof s.params === "object" ? s.params : {}, why: typeof s.why === "string" ? s.why.slice(0, 200) : undefined })), reply: typeof j.reply === "string" ? j.reply : undefined };
 }
 
@@ -23,7 +24,7 @@ const SYSTEM = () => `You are VISION's task planner. Choose tools to complete th
 ${catalogText()}
 
 Reply with JSON only: {"steps":[{"tool":"id","params":{...},"why":"short reason"}],"reply":"optional text if no tool is needed"}
-Rules: use at most ${MAX_STEPS} steps; each step receives the files and text produced by earlier steps (plus attached files), so chain steps (e.g. extract_text then summarize then create_document). Fill params from the request. If no tool fits, return {"steps":[],"reply":"<your full answer>"}.`;
+Rules: attached files are ALREADY available to every tool — never generate sample data or code to read them, and there is no code execution tool. Only use tool ids from the list. Use at most ${MAX_STEPS} steps; each step receives the files and text produced by earlier steps (plus attached files), so chain steps (e.g. extract_text then summarize then create_document). Fill params from the request. If no tool fits, return {"steps":[],"reply":"<your full answer>"}.`;
 
 export type AgentInput = { prompt: string; files: WorkFile[] };
 
@@ -34,7 +35,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
   await job.step("planning", "Choosing tools");
   let plan: Plan | null = null, lastErr = "";
   for (let a = 0; a < 2 && !plan; a++) {
-    const { text } = await complete(SYSTEM(), a ? `${ask}\n\nYour previous reply was invalid (${lastErr}). Reply with valid JSON only.` : ask, { maxTokens: 1500 });
+    const { text } = await complete(SYSTEM(), a ? `${ask}\n\nYour previous reply was invalid (${lastErr}). Reply with valid JSON only.` : ask, { maxTokens: 2000, models: PLANNING });
     try { plan = parsePlan(text, (id) => TOOL_MAP.has(id)); } catch (e: any) { lastErr = e.message; console.warn("[agent] plan parse failed:", e.message, JSON.stringify(text.slice(0, 400))); }
   }
   if (!plan) throw new Error("I couldn't work out which tools to use. Please rephrase the request.");
