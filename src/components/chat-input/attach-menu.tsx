@@ -8,7 +8,7 @@ export type AttachKind = "image" | "video" | "file";
 export const ACCEPT: Record<AttachKind, string> = {
   image: "image/*",
   video: "video/*,.mp4,.webm,.avi,.mov,.mkv",
-  file: ".zip,application/zip,audio/*,.txt,.pdf,.html,.md,.csv,.json,.xml,.mp3,.wav,.ogg,.aac,.flac,.m4a,.svg",
+  file: ".zip,application/zip,audio/*,image/*,.txt,.pdf,.docx,.xlsx,.xlsm,.html,.htm,.md,.csv,.tsv,.json,.yaml,.yml,.xml,.log,.js,.ts,.tsx,.jsx,.py,.css,.sql,.mp3,.wav,.ogg,.aac,.flac,.m4a,.svg,.epub",
 };
 
 /** "+" button opening Image / Video / File / Plugins. */
