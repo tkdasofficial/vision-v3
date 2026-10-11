@@ -1,4 +1,4 @@
-import { Gauge, Brain, BookOpen, Code, X, Check } from "lucide-react";
+import { Gauge, Brain, BookOpen, Code, Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -21,9 +21,10 @@ export default function ModeSelector({ selectedMode, onModeChange }: Props) {
         <DropdownMenuTrigger asChild>
           <Button type="button" variant="ghost" aria-label={active ? `Mode: ${current.label}` : "Choose mode"} title="Choose mode"
             className={cn("h-8 shrink-0 gap-1.5 rounded-full border transition-colors",
-              active ? "border-primary/40 bg-primary/10 px-3 text-primary hover:bg-primary/15 hover:text-primary [&_svg]:size-4" : "w-8 border-border p-0 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-[18px]")}>
+              "data-[state=open]:bg-accent data-[state=open]:text-foreground",
+              active ? "border-transparent bg-secondary pl-2.5 pr-2 text-foreground hover:bg-accent [&_svg]:size-4" : "w-8 border-border p-0 text-muted-foreground hover:bg-accent hover:text-foreground [&_svg]:size-[18px]")}>
             <CurrentIcon className="shrink-0" />
-            {active && <span className="text-xs font-medium leading-none">{current.label}</span>}
+            {active && <><span className="text-[13px] font-medium leading-none">{current.label}</span><ChevronDown className="size-3.5! opacity-60" /></>}
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-64 rounded-[1.75rem] border-border bg-card p-2 shadow-xl">
@@ -43,10 +44,6 @@ export default function ModeSelector({ selectedMode, onModeChange }: Props) {
           })}
         </DropdownMenuContent>
       </DropdownMenu>
-      {active && (
-        <Button type="button" variant="ghost" size="icon" aria-label="Clear mode" title="Clear mode" onClick={() => onModeChange("default")}
-          className="size-6 rounded-full p-0 text-muted-foreground hover:text-foreground [&_svg]:size-3.5"><X /></Button>
-      )}
     </div>
   );
 }
