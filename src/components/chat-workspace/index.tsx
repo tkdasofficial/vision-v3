@@ -16,7 +16,7 @@ import type { CreationMode } from "@/lib/creation-references";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
-import { analyzeZip } from "@/lib/zip-analyzer";
+import { runJob } from "@/lib/builder/jobs-client";
 import type { ChatMode } from "@/lib/ai/modes";
 import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
@@ -746,22 +746,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       onChatCreated?.(newId);
     }
 
+    // Analysis runs on the server as a tracked job; the card shows its real status.
+    const msgId = (Date.now() + 1).toString();
+    const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
+      const content = job.status === "failed" ? `Couldn't analyze **${file.name}**: ${job.error ?? "unknown error"}` : `Analysis of **${file.name}**`;
+      const msg = { id: msgId, role: "assistant" as const, content, timestamp: new Date(), job };
+      return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
+    });
+    setIsTyping(false);
     try {
-      const analysis = await analyzeZip(file);
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Analyzed **${analysis.fileName}** — ${analysis.totalFiles} files in ${analysis.totalDirectories} folders (${formatBytes(analysis.totalSize)} total, ${analysis.compressionRatio}% compression). Top file types: ${Object.entries(analysis.fileTypes).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([ext, n]) => `.${ext} (${n})`).join(", ")}.`,
-        timestamp: new Date(),
-        zipAnalysis: analysis,
-      }]);
+      await runJob("zip_analyze", { file }, show);
     } catch (e: any) {
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: "assistant",
-        content: `Failed to extract ZIP file: ${e.message}`,
-        timestamp: new Date(),
-      }]);
+      setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Couldn't analyze the ZIP: ${e.message}`, timestamp: new Date() }]);
     }
     setIsTyping(false);
   }, [chatId, addChat, tool, isIncognito]);

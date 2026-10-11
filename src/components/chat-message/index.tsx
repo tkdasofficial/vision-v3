@@ -9,6 +9,7 @@ import VideoGenerationCard from "@/components/video-generation-card";
 import VideoEditorCard from "@/components/video-editor-card";
 import WebAppPreviewCard from "@/components/web-app-preview-card";
 import ZipAnalysisCard from "@/components/zip-analysis-card";
+import JobCard from "@/components/job-card";
 import FileConverterCard from "@/components/file-converter-card";
 import TTSCard from "@/components/tts-card";
 import FileCreatorCard from "@/components/file-creator-card";
@@ -369,6 +370,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
             {message.webApp && (
               <WebAppPreviewCard project={message.webApp} />
             )}
+            {message.job && <JobCard job={message.job} />}
             {message.zipAnalysis && (
               <ZipAnalysisCard analysis={message.zipAnalysis} />
             )}

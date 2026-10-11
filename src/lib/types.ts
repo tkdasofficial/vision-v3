@@ -96,6 +96,8 @@ export type ChatMessage = {
   videoEdit?: VideoEditRequest;
   webApp?: WebAppData;
   zipAnalysis?: ZipAnalysis;
+  /** Backend job (ZIP analysis, project or code export) shown with live status. */
+  job?: import("./builder/statuses").JobView;
   convertFile?: File;
   ttsScript?: string;
   generatedFile?: {
