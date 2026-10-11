@@ -5,7 +5,7 @@ import { useNavigate } from "@/lib/router-compat";
 import ChatActionsMenu from "@/components/chat-actions-menu";
 import AnnouncementBanner from "@/components/announcement-banner";
 
-import type { AITool, ChatMessage as ChatMessageType } from "@/lib/types";
+import type { AITool, ChatMessage as ChatMessageType, MessageAttachment, PastedBlock } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { useChatHistory } from "@/context/ChatHistoryContext";
 import ChatInput from "@/components/chat-input";
@@ -753,6 +753,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       id: Date.now().toString(),
       role: "user",
       content: `Uploaded ZIP file: ${file.name}`,
+      typed: "",
+      attachments: [{ name: file.name, kind: "file", mime: "application/zip", size: file.size }],
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
@@ -795,6 +797,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       id: Date.now().toString(),
       role: "user",
       content: `Convert file: ${file.name}`,
+      typed: "Convert this file",
+      attachments: [{ name: file.name, kind: file.type.startsWith("video/") ? "video" : file.type.startsWith("image/") ? "image" : "file", mime: file.type || undefined, size: file.size }],
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
