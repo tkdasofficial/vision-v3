@@ -127,7 +127,7 @@ function rowToMessage(row: any): ChatMessage {
  * Ties on created_at (older rows saved in one batch share a timestamp) put the question before its answer.
  * A repeated message is hidden only when it is an exact copy of an earlier one with no reply of its own;
  * stored rows are never deleted. */
-function rowsToConversation(rows: any[]): ChatMessage[] {
+export function rowsToConversation(rows: any[]): ChatMessage[] {
   const sorted = rows.map((r, i) => ({ r, i, t: Date.parse(r.created_at) || 0 })).sort((a, b) =>
     a.t - b.t || (a.r.role === b.r.role ? a.i - b.i : a.r.role === "user" ? -1 : 1));
   const msgs = sorted.map((x) => rowToMessage(x.r));
