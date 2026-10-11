@@ -3,8 +3,8 @@ import { getJob } from "@/lib/jobs/jobs.server";
 import { d1 } from "@/lib/cloud/d1.server";
 import { readFileSync } from "fs";
 const uid = "e2e-runtime-test-user"; const id = crypto.randomUUID();
-const bytes = new Uint8Array(readFileSync("/tmp/e2e/t.png"));
-let j = await startJob(uid, id, "runtime_task", { operation: "image_convert", params: { target: "webp" }, fileName: "t.png", mime: "image/png", bytes });
+const [op,target,file,mime] = process.argv.slice(2); const bytes = new Uint8Array(readFileSync("/tmp/e2e/"+file));
+let j = await startJob(uid, id, "runtime_task", { operation: op, params: { target }, fileName: file, mime, bytes });
 console.log("start:", j?.status, j?.error ?? "");
 for (let i = 0; i < 60 && j && !["completed","completed_with_warnings","failed","timed_out","cancelled"].includes(j.status); i++) {
   await new Promise(r => setTimeout(r, 5000)); j = await getJob(uid, id); console.log(new Date().toISOString().slice(11,19), j?.status, j?.detail);
