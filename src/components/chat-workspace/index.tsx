@@ -16,7 +16,8 @@ import type { CreationMode } from "@/lib/creation-references";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
-import { runJob, listJobs } from "@/lib/builder/jobs-client";
+import { runJob, listJobs, fetchJob, cancelJob } from "@/lib/builder/jobs-client";
+import { isTerminal } from "@/lib/builder/statuses";
 import type { ChatMode } from "@/lib/ai/modes";
 import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
@@ -43,6 +44,14 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessageType[]>(initialMessages || []);
   const [isTyping, setIsTyping] = useState(false);
+  // Anything in flight that the send button can stop: a streaming reply and/or backend tasks of this chat.
+  const [streaming, setStreaming] = useState(false);
+  const [activeJobs, setActiveJobs] = useState<Set<string>>(new Set());
+  const abortRef = useRef<AbortController | null>(null);
+  const trackJob = useCallback((id: string, running: boolean) => setActiveJobs((cur) => {
+    if (cur.has(id) === running) return cur;
+    const next = new Set(cur); running ? next.add(id) : next.delete(id); return next;
+  }), []);
   const [creationError, setCreationError] = useState<string | null>(null);
   const initialMsgCount = useRef((initialMessages || []).length);
   const [thinkingPhase, setThinkingPhase] = useState<ThinkingPhase>("thinking");
@@ -189,14 +198,15 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     const jobId = crypto.randomUUID();
     const msgId = `job-${jobId}`;
     const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : type === "agent_task" ? "Working on it. Each step, its results and any downloads will appear here." : "Writing your file. The download will appear here.";
+    trackJob(jobId, true);
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" || job.status === "timed_out" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
       const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
       return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
     });
     try { await runJob(type, files ? { files, prompt: String(input.prompt ?? ""), sessionId } : { input, sessionId }, show, jobId); }
-    catch (e: any) { setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
-  }, []);
+    catch (e: any) { trackJob(jobId, false); setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
+  }, [trackJob]);
 
   // Restore this conversation's backend tasks (after a refresh or when the chat gets its own address).
   useEffect(() => {
@@ -204,6 +214,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     let cancelled = false;
     listJobs(chatId).then((jobs) => {
       if (cancelled || !jobs.length) return;
+      for (const j of jobs) if (!isTerminal(j.status)) trackJob(j.id, true);
       setMessages((prev) => {
         const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
         const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
@@ -214,7 +225,25 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       });
     }).catch(() => undefined);
     return () => { cancelled = true; };
-  }, [chatId, isIncognito]);
+  }, [chatId, isIncognito, trackJob]);
+
+  // Follow running tasks so the send button knows when everything has finished.
+  useEffect(() => {
+    if (!activeJobs.size) return;
+    const t = window.setInterval(() => {
+      for (const id of activeJobs) fetchJob(id).then((j) => { if (!j || isTerminal(j.status)) trackJob(id, false); }).catch(() => undefined);
+    }, 2500);
+    return () => window.clearInterval(t);
+  }, [activeJobs, trackJob]);
+
+  /** Stops whatever is running: the streaming reply and every running task in this chat. */
+  const handleStop = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStreaming(false);
+    setIsTyping(false);
+    for (const id of activeJobs) cancelJob(id).catch(() => undefined).finally(() => trackJob(id, false));
+  }, [activeJobs, trackJob]);
 
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => {
     if (creationMode) {
@@ -655,6 +684,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       const replyId = crypto.randomUUID();
       let started = false;
       let meta: { executionMode: string; output: string } = { executionMode: "default", output: "chat" };
+      const ctrl = new AbortController();
+      abortRef.current = ctrl; setStreaming(true);
       const finalText = await streamChat(chatMessages, (full) => {
         const visible = full.replace(/<think>[\s\S]*?(<\/think>|$)/g, "").trimStart();
         if (!visible) return;
@@ -662,8 +693,9 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         setMessages((prev) => prev.some((m) => m.id === replyId)
           ? prev.map((m) => (m.id === replyId ? { ...m, content: visible } : m))
           : [...prev, { id: replyId, role: "assistant", content: visible, timestamp: new Date(), toolId: tool?.id }]);
-      }, tool?.id, { mode: taskMode, onMeta: (m) => { meta = m; } });
-      const replyText = finalText || "I couldn't come up with an answer. Please try again.";
+      }, tool?.id, { mode: taskMode, onMeta: (m) => { meta = m; }, signal: ctrl.signal }).finally(() => { if (abortRef.current === ctrl) abortRef.current = null; setStreaming(false); });
+      const stopped = ctrl.signal.aborted;
+      const replyText = finalText || (stopped ? "Stopped." : "I couldn't come up with an answer. Please try again.");
       let reply: ChatMessageType = { id: replyId, role: "assistant", content: replyText, timestamp: new Date(), toolId: tool?.id, executionMode: meta.executionMode };
       // Research reports become a saved document shown as a compact card (saved once per reply).
       if (meta.output === "document" && finalText) {
@@ -680,6 +712,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       // Save the reply even if this screen was replaced while it streamed.
       if (sessionId) updateChatMessages(sessionId, [...messages, userMsg, reply]);
     } catch (e: any) {
+      if (e?.name === "AbortError") { clearTimeout(phaseTimer); setIsTyping(false); return; }
       setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         role: "assistant",
@@ -727,6 +760,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     // Analysis runs on the server as a tracked job; the card shows its real status.
     const zipJobId = crypto.randomUUID();
     const msgId = `job-${zipJobId}`;
+    trackJob(zipJobId, true);
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `Couldn't analyze **${file.name}**: ${job.error ?? "unknown error"}` : `Analysis of **${file.name}**`;
       const msg = { id: msgId, role: "assistant" as const, content, timestamp: new Date(), job };
@@ -832,7 +866,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       </div>
 
       {creationError && <p role="alert" className="mx-auto max-w-2xl px-4 pb-2 text-center text-sm text-destructive">{creationError}</p>}
-      <ChatInput creationMode={creationMode} toolName={tool?.shortName} onSend={handleSend} onZipUpload={creationMode ? undefined : handleZipUpload} onFileConvert={creationMode ? undefined : handleFileConvert} onSendFiles={creationMode ? undefined : handleSendFiles} disabled={isTyping} />
+      <ChatInput creationMode={creationMode} toolName={tool?.shortName} onSend={handleSend} onZipUpload={creationMode ? undefined : handleZipUpload} onFileConvert={creationMode ? undefined : handleFileConvert} onSendFiles={creationMode ? undefined : handleSendFiles} disabled={isTyping} busy={isTyping || streaming || activeJobs.size > 0} onStop={handleStop} />
     </div>
   );
 };

@@ -19,9 +19,12 @@ type Props = {
   /** Documents, data and audio go to the backend task agent together with the typed instruction. */
   onSendFiles?: (message: string, files: File[]) => void;
   disabled?: boolean;
+  /** Something is running (reply or task); the send button turns into a spinning stop button. */
+  busy?: boolean;
+  onStop?: () => void;
 };
 
-const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, disabled, creationMode }: Props) => {
+const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, disabled, creationMode, busy, onStop }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
@@ -301,20 +304,36 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
               >
                 {isListening ? <MicOff className="w-[18px] h-[18px]" /> : <Mic className="w-[18px] h-[18px]" />}
               </Button>
+              {busy && onStop ? (
+                <button
+                  type="button"
+                  onClick={onStop}
+                  aria-label="Stop"
+                  title="Stop"
+                  className="absolute right-0 top-0 flex size-8 shrink-0 items-center justify-center rounded-full bg-foreground text-background transition-opacity hover:opacity-80"
+                >
+                  <svg className="absolute inset-0 size-8 animate-spin motion-reduce:animate-none" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
+                    <path d="M16 2a14 14 0 0 1 14 14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+                  </svg>
+                  <span className="size-2.5 rounded-[2px] bg-background" />
+                </button>
+              ) : (
               <PromptInputSubmit
-                aria-label="Send message"
-                title="Send message"
-                status={disabled ? "submitted" : "ready"}
-                disabled={disabled || !hasContent}
-                aria-hidden={!hasContent}
-                tabIndex={hasContent ? 0 : -1}
-                className={cn(
-                  "absolute right-0 top-0 size-8 shrink-0 rounded-full p-0 border border-foreground bg-foreground text-background hover:opacity-80 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none [&_svg]:size-[18px]",
-                  hasContent ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-75 disabled:opacity-0"
-                )}
-              >
-                <ArrowUp className="w-[18px] h-[18px]" />
-              </PromptInputSubmit>
+                  aria-label="Send message"
+                  title="Send message"
+                  status={disabled ? "submitted" : "ready"}
+                  disabled={disabled || !hasContent}
+                  aria-hidden={!hasContent}
+                  tabIndex={hasContent ? 0 : -1}
+                  className={cn(
+                    "absolute right-0 top-0 size-8 shrink-0 rounded-full p-0 border border-foreground bg-foreground text-background hover:opacity-80 transition-[opacity,transform] duration-200 ease-out motion-reduce:transition-none [&_svg]:size-[18px]",
+                    hasContent ? "opacity-100 scale-100" : "pointer-events-none opacity-0 scale-75 disabled:opacity-0"
+                  )}
+                >
+                  <ArrowUp className="w-[18px] h-[18px]" />
+                </PromptInputSubmit>
+              )}
             </div>
           </PromptInputFooter>
         </PromptInput>
