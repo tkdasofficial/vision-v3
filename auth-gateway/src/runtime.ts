@@ -9,6 +9,7 @@
 //   POST /runtime/output/:idx           base64 text body
 //   POST /runtime/complete              {ok, error?, result?, output?}
 
+type D1Database = { prepare(sql: string): { bind(...v: unknown[]): { first<T = any>(): Promise<T | null>; run(): Promise<unknown> } } };
 export interface RuntimeEnv { DB: D1Database }
 
 const REPO = "tkdasofficial/vision-runtime";
@@ -57,7 +58,7 @@ export async function verifyGithubOidc(token: string): Promise<{ runId: string }
 async function session(req: Request, env: RuntimeEnv): Promise<any | null> {
   const tok = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
   if (tok.length < 40) return null;
-  const row = await env.DB.prepare("SELECT * FROM runtime_jobs WHERE session_hash = ?").bind(await sha256(tok)).first<any>();
+  const row = await env.DB.prepare("SELECT * FROM runtime_jobs WHERE session_hash = ?").bind(await sha256(tok)).first();
   if (!row || row.status !== "running" || Date.parse(row.session_expires) < Date.now()) return null;
   return row;
 }
@@ -75,7 +76,7 @@ export async function handleRuntime(req: Request, env: RuntimeEnv, path: string)
       // Single claim: only a dispatched job, and only by one run.
       const row = await env.DB.prepare(
         "UPDATE runtime_jobs SET status = 'running', run_id = ?, session_hash = ?, session_expires = ?, output_key = ?, started_at = ?, stage = 'claimed', updated_at = ? WHERE job_id = ? AND status = 'dispatched' AND (run_id IS NULL OR run_id = ?) RETURNING operation, params, input_name, input_mime, input_size, input_sha256, input_chunks",
-      ).bind(oidc.runId, await sha256(sess), new Date(Date.now() + SESSION_TTL_MS).toISOString(), outKey, now(), now(), body.job_id, oidc.runId).first<any>();
+      ).bind(oidc.runId, await sha256(sess), new Date(Date.now() + SESSION_TTL_MS).toISOString(), outKey, now(), now(), body.job_id, oidc.runId).first();
       if (!row) return json(409, { error: "job not claimable" });
       return json(200, { session: sess, operation: row.operation, params: JSON.parse(row.params || "{}"), input: row.input_chunks ? { name: row.input_name, mime: row.input_mime, size: row.input_size, sha256: row.input_sha256, chunks: row.input_chunks } : null });
     }
@@ -85,7 +86,7 @@ export async function handleRuntime(req: Request, env: RuntimeEnv, path: string)
     if (m && m[1] === "input" && req.method === "GET") {
       const idx = Number(m[2]);
       if (idx >= job.input_chunks) return json(404, { error: "no chunk" });
-      const r = await env.DB.prepare("SELECT data FROM artifact_chunks WHERE artifact_key = ? AND idx = ?").bind(job.input_key, idx).first<any>();
+      const r = await env.DB.prepare("SELECT data FROM artifact_chunks WHERE artifact_key = ? AND idx = ?").bind(job.input_key, idx).first();
       return r ? new Response(r.data, { headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } }) : json(404, { error: "no chunk" });
     }
     if (m && m[1] === "output" && req.method === "POST") {
