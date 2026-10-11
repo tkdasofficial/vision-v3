@@ -245,3 +245,18 @@
     scrollbar-width: none;
   }
 }
+
+/* Code canvas: fixed dark editor surface with real syntax colours (GitHub Dark palette). */
+.code-canvas { background: #0d1117; color: #e6edf3; }
+.code-canvas .hljs { color: #e6edf3; background: transparent; }
+.code-canvas .hljs-comment, .code-canvas .hljs-quote { color: #8b949e; font-style: italic; }
+.code-canvas .hljs-keyword, .code-canvas .hljs-selector-tag, .code-canvas .hljs-meta .hljs-keyword, .code-canvas .hljs-doctag { color: #ff7b72; }
+.code-canvas .hljs-string, .code-canvas .hljs-regexp, .code-canvas .hljs-meta .hljs-string { color: #a5d6ff; }
+.code-canvas .hljs-title, .code-canvas .hljs-title.function_, .code-canvas .hljs-section { color: #d2a8ff; }
+.code-canvas .hljs-name, .code-canvas .hljs-selector-id, .code-canvas .hljs-selector-class, .code-canvas .hljs-built_in, .code-canvas .hljs-tag { color: #7ee787; }
+.code-canvas .hljs-attr, .code-canvas .hljs-attribute, .code-canvas .hljs-number, .code-canvas .hljs-literal, .code-canvas .hljs-variable, .code-canvas .hljs-template-variable, .code-canvas .hljs-property, .code-canvas .hljs-meta { color: #79c0ff; }
+.code-canvas .hljs-type, .code-canvas .hljs-params, .code-canvas .hljs-symbol, .code-canvas .hljs-bullet { color: #ffa657; }
+.code-canvas .hljs-addition { color: #aff5b4; background: #033a16; }
+.code-canvas .hljs-deletion { color: #ffdcd7; background: #67060c; }
+.code-canvas header { border-color: #30363d; }
+.code-canvas header button, .code-canvas header span { color: #c9d1d9; }
