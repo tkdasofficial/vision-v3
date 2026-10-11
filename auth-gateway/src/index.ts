@@ -1,3 +1,4 @@
+import { handleMail, type MailEnv } from "./mail";
 // Vision auth gateway (Cloudflare Worker).
 // Runs Google/GitHub OAuth with provider credentials that live only here, then
 // hands the app a short-lived Ed25519-signed assertion bound to the browser's nonce.
