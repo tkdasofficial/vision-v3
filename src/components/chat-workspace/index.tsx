@@ -191,7 +191,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     const msgId = `job-${jobId}`;
     const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : type === "agent_task" ? "Working on it. Each step, its results and any downloads will appear here." : "Writing your file. The download will appear here.";
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
-      const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
+      const content = job.status === "failed" || job.status === "timed_out" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
       const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
       return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
     });
@@ -209,7 +209,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
         const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
           id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
-          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" ? "Here's the result." : "Here's your file.",
+          content: j.status === "failed" || j.status === "timed_out" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" || j.type === "runtime_task" ? "Here's the result." : "Here's your file.",
         }));
         return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
       });
