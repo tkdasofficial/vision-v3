@@ -1,4 +1,4 @@
-import { Image, Film, Library, FolderOpen, Plug } from "lucide-react";
+import { Image, Film, Library, FolderOpen, Plug, Hammer } from "lucide-react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ const features = [
   { label: "Videos", to: "/videos", icon: Film },
   { label: "Library", to: "/library", icon: Library },
   { label: "Projects", to: "/projects", icon: FolderOpen },
+  { label: "Builder", to: "/builder", icon: Hammer },
   { label: "Plugins", to: "/integrations", icon: Plug },
 ] as const;
 
