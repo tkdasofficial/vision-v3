@@ -1,4 +1,4 @@
-import { Plus, Image as ImageIcon, Clapperboard, Paperclip, AtSign } from "lucide-react";
+import { Image as ImageIcon, Clapperboard, Paperclip, AtSign } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useNavigate } from "@/lib/router-compat";
@@ -25,8 +25,8 @@ export default function AttachMenu({ onPick, imageOnly }: { onPick: (kind: Attac
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button type="button" variant="ghost" size="icon" aria-label="Add attachment" title="Add attachment"
-          className="group size-8 shrink-0 rounded-full border border-border p-0 text-muted-foreground hover:bg-accent hover:text-foreground data-[state=open]:bg-foreground data-[state=open]:text-background [&_svg]:size-[18px]">
-          <Plus className="transition-transform group-data-[state=open]:rotate-45" />
+          className="size-8 shrink-0 rounded-full p-0 border border-border text-muted-foreground hover:text-foreground hover:bg-accent [&_svg]:size-[18px]">
+          <Paperclip className="w-[18px] h-[18px]" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-60 rounded-[1.75rem] border-border bg-card p-2 shadow-xl">
