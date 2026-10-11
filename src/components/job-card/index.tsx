@@ -1,10 +1,10 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, Download, RotateCcw, Square, ChevronDown, FileCode2, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { JOB_STATUSES, isTerminal, type JobView } from "@/lib/builder/statuses";
-import { cancelJob, downloadUrl } from "@/lib/builder/jobs-client";
+import { cancelJob, downloadUrl, fetchJob } from "@/lib/builder/jobs-client";
 
 const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis" } as const;
 const fmt = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
@@ -17,7 +17,24 @@ function StatusIcon({ status }: { status: JobView["status"] }) {
   return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
 }
 
-export default function JobCard({ job, onRetry, compact }: { job: JobView; onRetry?: (id: string) => void; compact?: boolean }) {
+export default function JobCard({ job: given, onRetry, compact }: { job: JobView; onRetry?: (id: string) => void; compact?: boolean }) {
+  const [job, setJob] = useState(given);
+  const [viewing, setViewing] = useState<string | null>(null);
+  useEffect(() => { setJob((cur) => (Date.parse(given.updatedAt) >= Date.parse(cur.updatedAt) ? given : cur)); }, [given]);
+  // Reload the stored state (e.g. after a page refresh) and keep following it until it finishes.
+  useEffect(() => {
+    let stop = false;
+    (async () => {
+      for (;;) {
+        const j = await fetchJob(given.id).catch(() => null);
+        if (stop) return;
+        if (j) setJob((cur) => (Date.parse(j.updatedAt) >= Date.parse(cur.updatedAt) || !cur.result?.webApp ? j : cur));
+        if (!j || isTerminal(j.status)) return;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    })();
+    return () => { stop = true; };
+  }, [given.id]);
   const [open, setOpen] = useState(!compact);
   const [cancelling, setCancelling] = useState(false);
   const running = !isTerminal(job.status);
@@ -71,7 +88,13 @@ export default function JobCard({ job, onRetry, compact }: { job: JobView; onRet
           {job.type === "project_generate" && r.files && (
             <div>
               <p className="mb-1 text-xs font-medium">{r.stackLabel} · {r.files.length} files</p>
-              <ul className="max-h-56 overflow-y-auto rounded-xl bg-muted p-3 font-mono text-xs">{r.files.map((f: any) => <li key={f.path} className="flex justify-between gap-2"><span className="truncate"><FileCode2 className="mr-1 inline h-3 w-3" />{f.path}</span><span className="text-muted-foreground">{fmt(f.size)}</span></li>)}</ul>
+              <ul className="max-h-56 overflow-y-auto rounded-xl bg-muted p-2 font-mono text-xs">{r.files.map((f: any) => (
+                <li key={f.path}>
+                  <button type="button" onClick={() => setViewing((v) => (v === f.path ? null : f.path))} aria-expanded={viewing === f.path} className={cn("flex w-full justify-between gap-2 rounded-lg px-2 py-1 text-left hover:bg-background", viewing === f.path && "bg-background")}>
+                    <span className="truncate"><FileCode2 className="mr-1 inline h-3 w-3" />{f.path}</span><span className="shrink-0 text-muted-foreground">{fmt(f.size)}</span>
+                  </button>
+                </li>))}</ul>
+              {viewing && (() => { const file = r.webApp?.files?.find((x: any) => x.path === viewing); return <pre className="mt-2 max-h-80 overflow-auto rounded-xl bg-muted p-3 text-xs"><code>{file ? file.content : "Loading file…"}</code></pre>; })()}
               {r.validation && <p className="mt-2 text-xs text-muted-foreground">Checked: {r.validation.checked.join(", ")}. Not checked: {r.validation.notChecked.join("; ")}.</p>}
             </div>
           )}
