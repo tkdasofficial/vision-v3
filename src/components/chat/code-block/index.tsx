@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 import FullScreenCodeView from "@/components/chat/full-screen-code-view";
 import { useCopy } from "@/components/chat/use-copy";
-import { highlight } from "@/components/chat/highlight";
+import { detectLanguage, highlight } from "@/components/chat/highlight";
 
 type Props = { code: string; language?: string; filename?: string };
 const LINES = 15; // roughly 14–16 lines fill the square
@@ -14,7 +14,8 @@ export default function CodeBlock({ code, language, filename }: Props) {
   const { copied, copy } = useCopy();
   const box = useRef<HTMLDivElement>(null);
   const [font, setFont] = useState(13);
-  const hl = useMemo(() => highlight(code, language), [code, language]);
+  const lang = useMemo(() => detectLanguage(code, language), [code, language]);
+  const hl = useMemo(() => highlight(code, lang), [code, lang]);
 
   useEffect(() => {
     const el = box.current;
@@ -61,7 +62,7 @@ export default function CodeBlock({ code, language, filename }: Props) {
       >
         {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
       </button>
-      {open && <FullScreenCodeView code={code} language={language ?? hl.language} filename={filename} html={hl.html} onClose={() => setOpen(false)} />}
+      {open && <FullScreenCodeView code={code} language={lang} filename={filename} html={hl.html} onClose={() => setOpen(false)} />}
     </div>
   );
 }
