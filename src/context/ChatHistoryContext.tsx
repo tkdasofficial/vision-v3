@@ -306,10 +306,14 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   const pendingRows = useRef<Record<string, Map<string, { row: any; msg: ChatMessage }>>>({});
   const updateChatMessages = useCallback((id: string, messages: ChatMessage[]) => {
     setHistory((prev) => prev.map((c) => (c.id === id ? { ...c, messages } : c)));
-    lsSetMessages(id, messages);
-
     // Debounced save of messages that are new or changed since the last save.
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    // Cache with the database ids so a reload re-saves the same rows instead of creating duplicates.
+    lsSetMessages(id, messages.filter((m) => !m.job).map((m) => {
+      if (UUID.test(m.id)) return m;
+      if (!idMapRef.current.has(m.id)) idMapRef.current.set(m.id, crypto.randomUUID());
+      return { ...m, id: idMapRef.current.get(m.id)! };
+    }));
     // Task messages are restored from the server's task records, so they are not saved as chat rows.
     const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
