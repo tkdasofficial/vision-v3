@@ -66,7 +66,7 @@ export class JobRun {
     const { storePrivate } = await import("@/lib/cloud/drive.server");
     const driveId = await storePrivate(name, mime, bytes);
     const id = crypto.randomUUID();
-    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes))].map((b) => b.toString(16).padStart(2, "0")).join("");
+    const hash = [...new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as Uint8Array<ArrayBuffer>))].map((b) => b.toString(16).padStart(2, "0")).join("");
     await d1("INSERT INTO job_artifacts (id, job_id, user_id, name, mime, size, sha256, drive_file_id, kind, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       [id, this.id, this.userId, name, mime, bytes.length, hash, driveId, kind, new Date(Date.now() + ARTIFACT_TTL_MS).toISOString(), now()]);
     return { id, name, size: bytes.length, kind: kind === "source" ? "file" : kind };
