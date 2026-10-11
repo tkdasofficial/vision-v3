@@ -96,7 +96,7 @@ export async function markdownToPdf(title: string, md: string): Promise<Uint8Arr
     const plain = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1").replace(/\*(.+?)\*/g, "$1").replace(/`([^`]+)`/g, "$1").replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
     if (h) { y -= 6; line(plain(h[2]), bold, [20, 15, 13][h[1].length - 1]); y -= 2; }
     else if (/^\s*[-*]\s+/.test(raw)) line("• " + plain(raw.replace(/^\s*[-*]\s+/, "")), font, 11, 12);
-    else if (/^\s*\|/.test(raw)) { if (!/^\s*\|[\s:-]+\|/.test(raw)) line(raw.split("|").filter((c, i, a) => i && i < a.length - 1).map((c) => plain(c.trim())).join("   |   "), font, 10); }
+    else if (/^\s*\|/.test(raw)) { if (!/^\s*\|[\s:|-]+\|\s*$/.test(raw)) line(raw.split("|").filter((c, i, a) => i && i < a.length - 1).map((c) => plain(c.trim())).join("   |   "), font, 10); }
     else if (!raw.trim()) y -= 6;
     else line(plain(raw));
   }
@@ -113,7 +113,7 @@ export async function markdownToDocx(title: string, md: string): Promise<Uint8Ar
     const h = raw.match(/^(#{1,3})\s+(.*)/);
     if (h) children.push(new Paragraph({ heading: [HeadingLevel.HEADING_1, HeadingLevel.HEADING_2, HeadingLevel.HEADING_3][h[1].length - 1], children: runs(h[2]) }));
     else if (/^\s*[-*]\s+/.test(raw)) children.push(new Paragraph({ bullet: { level: 0 }, children: runs(raw.replace(/^\s*[-*]\s+/, "")) }));
-    else if (/^\s*\|[\s:-]+\|/.test(raw)) continue;
+    else if (/^\s*\|[\s:|-]+\|\s*$/.test(raw)) continue;
     else children.push(new Paragraph({ children: runs(raw.replace(/^\s*\|/, "").replace(/\|\s*$/, "").replace(/\s*\|\s*/g, "    ")) }));
   }
   const doc = new Document({ title, creator: "VISION", styles: { default: { document: { run: { font: "Arial", size: 22 } } } }, sections: [{ children }] });
@@ -125,7 +125,7 @@ async function mdToHtml(title: string, md: string) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title.replace(/</g, "&lt;")}</title><style>body{font-family:Arial,sans-serif;max-width:760px;margin:40px auto;padding:0 16px;line-height:1.6;color:#1e293b}pre{background:#f1f5f9;padding:12px;overflow:auto}table{border-collapse:collapse}td,th{border:1px solid #cbd5e1;padding:6px 10px}</style></head><body>${body}</body></html>`;
 }
 const mdTables = (md: string): unknown[][] => {
-  const rows = md.split(/\r?\n/).filter((l) => /^\s*\|/.test(l) && !/^\s*\|[\s:-]+\|\s*$/.test(l)).map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
+  const rows = md.split(/\r?\n/).filter((l) => /^\s*\|/.test(l) && !/^\s*\|[\s:|-]+\|\s*$/.test(l)).map((l) => l.trim().replace(/^\||\|$/g, "").split("|").map((c) => c.trim()));
   return rows.map((r) => r.map((c) => (/^-?\d+(\.\d+)?$/.test(c) ? Number(c) : c)));
 };
 export async function buildDocument(format: string, title: string, md: string): Promise<WorkFile> {
