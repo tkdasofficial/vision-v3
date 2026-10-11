@@ -724,9 +724,11 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     setIsTyping(true);
     setThinkingPhase("thinking");
 
+    let zipSession: string | null = isIncognito ? null : chatId;
     if (!isIncognito && !chatId) {
       const title = `ZIP: ${file.name}`;
       const newId = addChat(title, `Uploaded ${file.name}`, tool?.id);
+      zipSession = newId;
       setChatId(newId);
       setChatTitle(title);
       onChatCreated?.(newId);
