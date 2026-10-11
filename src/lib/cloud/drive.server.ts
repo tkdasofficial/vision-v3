@@ -4,7 +4,7 @@
 // touch Drive.
 import { d1 } from "./d1.server";
 
-const SUBFOLDERS = ["Images", "Videos", "PDFs", "Text", "Code", "Other"] as const;
+const SUBFOLDERS = ["Images", "Videos", "PDFs", "Text", "Code", "Other", "Artifacts"] as const;
 type Kind = (typeof SUBFOLDERS)[number];
 
 export function kindForMime(mime: string, name: string): Kind {
@@ -123,4 +123,28 @@ export async function deleteFile(userId: string, fileId: string) {
   await driveFetch(token, `https://www.googleapis.com/drive/v3/files/${rows[0].drive_file_id}`, { method: "DELETE" });
   await d1("DELETE FROM user_files WHERE id = ?", [fileId]);
   return { ok: true };
+}
+
+/** Stores a private job artifact (no public link). Returns the Drive file id. */
+export async function storePrivate(name: string, mime: string, bytes: Uint8Array): Promise<string> {
+  const token = await accessToken();
+  const folder = await folderFor(token, "Artifacts");
+  const boundary = "vision" + crypto.randomUUID().replace(/-/g, "");
+  const enc = new TextEncoder();
+  const head = enc.encode(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify({ name, parents: [folder] })}\r\n--${boundary}\r\nContent-Type: ${mime}\r\n\r\n`);
+  const tail = enc.encode(`\r\n--${boundary}--`);
+  const body = new Uint8Array(head.length + bytes.length + tail.length);
+  body.set(head, 0); body.set(bytes, head.length); body.set(tail, head.length + bytes.length);
+  const res = await driveFetch(token, "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id", { method: "POST", headers: { "Content-Type": `multipart/related; boundary=${boundary}` }, body });
+  return ((await res.json()) as any).id as string;
+}
+
+export async function readPrivate(driveFileId: string): Promise<Response> {
+  const token = await accessToken();
+  return driveFetch(token, `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}?alt=media`);
+}
+
+export async function deletePrivate(driveFileId: string): Promise<void> {
+  const token = await accessToken();
+  await driveFetch(token, `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(driveFileId)}`, { method: "DELETE" }).catch(() => undefined);
 }
