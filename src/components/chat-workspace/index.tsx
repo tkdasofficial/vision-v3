@@ -16,7 +16,7 @@ import type { CreationMode } from "@/lib/creation-references";
 import TypingIndicator, { detectPhase, type ThinkingPhase } from "@/components/typing-indicator";
 import { detectAspectRatio } from "@/lib/detect-aspect-ratio";
 import { getCategory } from "@/lib/file-converter";
-import { runJob } from "@/lib/builder/jobs-client";
+import { runJob, listJobs } from "@/lib/builder/jobs-client";
 import type { ChatMode } from "@/lib/ai/modes";
 import { saveDocumentFn } from "@/lib/cloud/documents.functions";
 import { useBackgroundTasks, type BackgroundTask } from "@/hooks/useBackgroundTasks";
@@ -187,17 +187,35 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
   /** Runs a backend job and keeps one assistant message in this chat updated with its live status. */
   const runInlineJob = useCallback(async (type: "project_generate" | "code_export", input: Record<string, unknown>, sessionId: string | null) => {
-    const msgId = crypto.randomUUID();
+    const jobId = crypto.randomUUID();
+    const msgId = `job-${jobId}`;
     const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : "Writing your file. The download will appear here.";
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
       const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
       return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
     });
-    try { await runJob(type, { input }, show); }
+    try { await runJob(type, { input, sessionId }, show, jobId); }
     catch (e: any) { setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
-    void sessionId;
   }, []);
+
+  // Restore this conversation's backend tasks (after a refresh or when the chat gets its own address).
+  useEffect(() => {
+    if (isIncognito || !chatId) return;
+    let cancelled = false;
+    listJobs(chatId).then((jobs) => {
+      if (cancelled || !jobs.length) return;
+      setMessages((prev) => {
+        const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
+        const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
+          id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
+          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : "Here's your file.",
+        }));
+        return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
+      });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [chatId, isIncognito]);
 
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => {
     if (creationMode) {
@@ -715,7 +733,8 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
 
     // Analysis runs on the server as a tracked job; the card shows its real status.
-    const msgId = (Date.now() + 1).toString();
+    const zipJobId = crypto.randomUUID();
+    const msgId = `job-${zipJobId}`;
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `Couldn't analyze **${file.name}**: ${job.error ?? "unknown error"}` : `Analysis of **${file.name}**`;
       const msg = { id: msgId, role: "assistant" as const, content, timestamp: new Date(), job };
@@ -723,7 +742,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     });
     setIsTyping(false);
     try {
-      await runJob("zip_analyze", { file }, show);
+      await runJob("zip_analyze", { file, sessionId: zipSession }, show, zipJobId);
     } catch (e: any) {
       setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Couldn't analyze the ZIP: ${e.message}`, timestamp: new Date() }]);
     }
