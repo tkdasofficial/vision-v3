@@ -191,8 +191,12 @@ export const TOOLS: Tool[] = [
     return { text: r.text, data: { words: r.words }, files: [txt(`${base(f.name)}.txt`, r.text), txt(`${base(f.name)}.vtt`, r.vtt, "text/vtt")] };
   } },
   // Documents & PDF
-  { id: "create_document", category: "File creation", desc: "Write a new document with AI (report, letter, resume, essay, notes, table…) and save it as pdf, docx, html, md, txt, epub, xlsx or csv. Uses the previous step's text as source when present", params: '{"request": string, "format": "pdf"|"docx"|"html"|"md"|"txt"|"epub"|"xlsx"|"csv", "title"?: string, "use_previous"?: boolean}', run: async (c, p) => {
+  { id: "create_document", category: "File creation", desc: "Write a new document with AI (report, letter, resume, essay, notes, table…) and save it as pdf, docx, html, md, txt, epub, xlsx or csv. Uses the previous step's text as source when present", params: '{"request": string, "format": "pdf"|"docx"|"html"|"md"|"txt"|"epub"|"xlsx"|"csv", "title"?: string, "use_previous"?: boolean, "verbatim"?: boolean (true = save the previous step text unchanged)}', run: async (c, p) => {
     const fmt = String(p?.format || "md").toLowerCase();
+    if (p?.verbatim && c.lastText && !/xlsx|csv|excel/.test(fmt)) {
+      const title = p?.title || c.lastText.match(/^#\s+(.*)/m)?.[1] || "Document";
+      return { text: `Saved the previous result as ${fmt.toUpperCase()}.`, files: [await buildDocument(fmt, title, c.lastText)] };
+    }
     if (/xlsx|csv|excel/.test(fmt) && (c.lastTable || c.files.some((f) => /\.(csv|tsv|json)$/i.test(f.name) || kindOf(f) === "xlsx"))) {
       // Real data is available: write it as-is instead of letting the AI retype (and possibly invent) numbers.
       const rows = c.lastTable ?? await tableOf(c, {});

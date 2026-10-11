@@ -24,7 +24,7 @@ const SYSTEM = () => `You are VISION's task planner. Choose tools to complete th
 ${catalogText()}
 
 Reply with JSON only: {"steps":[{"tool":"id","params":{...},"why":"short reason"}],"reply":"optional text if no tool is needed"}
-Rules: attached files are ALREADY available to every tool — never generate sample data or code to read them, and there is no code execution tool. Only use tool ids from the list. Use at most ${MAX_STEPS} steps; each step receives the files and text produced by earlier steps (plus attached files), so chain steps (e.g. extract_text then summarize then create_document). Fill params from the request. If no tool fits, return {"steps":[],"reply":"<your full answer>"}.`;
+Rules: attached files are ALREADY available to every tool — never generate sample data or code to read them, and there is no code execution tool. Only use tool ids from the list. When the user asks to save or export an earlier step result, use create_document with "verbatim": true so nothing is rewritten. For spreadsheets from real data, prefer query_data or convert_document. Use at most ${MAX_STEPS} steps; each step receives the files and text produced by earlier steps (plus attached files), so chain steps (e.g. extract_text then summarize then create_document). Fill params from the request. If no tool fits, return {"steps":[],"reply":"<your full answer>"}.`;
 
 export type AgentInput = { prompt: string; files: WorkFile[] };
 
