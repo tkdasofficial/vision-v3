@@ -1,4 +1,4 @@
-import { RefreshCw, Search as SearchIcon, FolderOpen as FolderOpenIcon, Folders } from "lucide-react";
+import { RefreshCw, FolderOpen as FolderOpenIcon, Folders } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import PageHeader from "@/components/page-header";
 import { ArrowUpRight, FileText, MessageSquare, Search as SearchIcon, Sparkles } from "lucide-react";

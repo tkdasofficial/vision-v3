@@ -1,4 +1,4 @@
-import { UserRound, CircleHelp, LifeBuoy, Info } from "lucide-react";
+import { UserRound, CircleHelp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import { Palette, Languages, Sparkles, MessagesSquare, Database, ShieldCheck, Accessibility, Bell, Info, User, Inbox, Crown, LayoutDashboard, FileText, Shield, HelpCircle, LifeBuoy, LogOut, Mail, ChevronRight } from "lucide-react";

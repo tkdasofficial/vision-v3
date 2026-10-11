@@ -1,4 +1,4 @@
-import { RefreshCw, Bell } from "lucide-react";
+import { RefreshCw } from "lucide-react";
 import { useNavigate } from "@/lib/router-compat";
 import PageHeader from "@/components/page-header";
 import { ArrowLeft, Bell, Inbox as InboxIcon } from "lucide-react";
