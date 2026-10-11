@@ -430,7 +430,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     // Tool requests (documents, PDFs, data, charts, QR, security, math, web pages) run as a backend agent task.
     const isToolTask = (!taskMode || taskMode === "default") && (
-      /\b(qr\s*code|sha-?(1|256|384|512)|checksum|hash of|base64|jwt|uuid|generate (a )?password|strong password|unit conver|convert \d|calculate|chart|bar graph|line graph|pie chart|diagram|flowchart|mermaid|gantt|word document|\.docx|docx|epub|e-?book|fetch (the )?(page|url|website)|scrape|extract (text|links)|validate (these|this|the)|redact|privacy scan|yaml|json to csv|csv to json)\b/i.test(content)
+      /\b(qr\s*code|barcode|code ?128|code ?39|ean-?13|ean-?8|upc-?[ae]|sha-?(1|256|384|512)|checksum|hash of|base64|jwt|uuid|generate (a )?password|strong password|unit conver|convert \d|calculate|chart|bar graph|line graph|pie chart|diagram|flowchart|mermaid|gantt|word document|\.docx|docx|epub|e-?book|fetch (the )?(page|url|website)|scrape|extract (text|links)|validate (these|this|the)|redact|privacy scan|yaml|json to csv|csv to json)\b/i.test(content)
       || (/\b(create|make|generate|write|export|save|convert)\b/i.test(content) && /\b(pdf|docx|word|epub|excel|xlsx|spreadsheet|csv)\b/i.test(content))
       || /https?:\/\/\S+/.test(content) && /\b(summari[sz]e|extract|fetch|read|save|convert)\b/i.test(content));
     if (isToolTask) {
