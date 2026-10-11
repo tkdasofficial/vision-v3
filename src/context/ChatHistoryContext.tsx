@@ -80,6 +80,17 @@ const getDateLabel = (ts: number): string => {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 };
 
+/** Same local message id → same database row id, across remounts and reloads (prevents duplicate rows). */
+function stableRowId(sessionId: string, localId: string): string {
+  let h = "";
+  for (let seed = 0; seed < 4; seed++) {
+    let x = 0x811c9dc5 ^ seed;
+    for (const ch of `${sessionId}:${localId}`) x = Math.imul(x ^ ch.charCodeAt(0), 0x01000193) >>> 0;
+    h += x.toString(16).padStart(8, "0");
+  }
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
+}
+
 /** Serialize a ChatMessage's extra data into a JSONB-safe metadata object */
 function buildMetadata(msg: ChatMessage): Record<string, any> {
   const meta: Record<string, any> = {};
@@ -311,16 +322,14 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     // Cache with the database ids so a reload re-saves the same rows instead of creating duplicates.
     lsSetMessages(id, messages.filter((m) => !m.job).map((m) => {
       if (UUID.test(m.id)) return m;
-      if (!idMapRef.current.has(m.id)) idMapRef.current.set(m.id, crypto.randomUUID());
-      return { ...m, id: idMapRef.current.get(m.id)! };
+      return { ...m, id: stableRowId(id, m.id) };
     }));
     // Task messages are restored from the server's task records, so they are not saved as chat rows.
     const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
     const rows = pending.map((m) => {
-      if (!UUID.test(m.id) && !idMapRef.current.has(m.id)) idMapRef.current.set(m.id, crypto.randomUUID());
       return {
-        id: UUID.test(m.id) ? m.id : idMapRef.current.get(m.id)!,
+        id: UUID.test(m.id) ? m.id : stableRowId(id, m.id),
         session_id: id,
         role: m.role as string,
         content: m.content,
