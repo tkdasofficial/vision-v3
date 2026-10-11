@@ -14,6 +14,7 @@ import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BuilderRouteImport } from './routes/builder'
 import { Route as EnterpriseRouteImport } from './routes/enterprise'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as GettingStartedRouteImport } from './routes/getting-started'
@@ -117,6 +118,11 @@ const AppRoute = AppRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuilderRoute = BuilderRouteImport.update({
+  id: '/builder',
+  path: '/builder',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EnterpriseRoute = EnterpriseRouteImport.update({
@@ -523,6 +529,7 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
+  '/builder': typeof BuilderRoute
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
@@ -608,6 +615,7 @@ export interface FileRoutesByTo {
   '/account': typeof AccountRoute
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
+  '/builder': typeof BuilderRoute
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
@@ -694,6 +702,7 @@ export interface FileRoutesById {
   '/admin': typeof AdminRouteWithChildren
   '/app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
+  '/builder': typeof BuilderRoute
   '/enterprise': typeof EnterpriseRouteWithChildren
   '/forgot-password': typeof ForgotPasswordRoute
   '/getting-started': typeof GettingStartedRoute
@@ -782,6 +791,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/builder'
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
@@ -867,6 +877,7 @@ export interface FileRouteTypes {
     | '/account'
     | '/app'
     | '/auth'
+    | '/builder'
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
@@ -952,6 +963,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/app'
     | '/auth'
+    | '/builder'
     | '/enterprise'
     | '/forgot-password'
     | '/getting-started'
@@ -1039,6 +1051,7 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
+  BuilderRoute: typeof BuilderRoute
   EnterpriseRoute: typeof EnterpriseRouteWithChildren
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   GettingStartedRoute: typeof GettingStartedRoute
@@ -1114,6 +1127,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/builder': {
+      id: '/builder'
+      path: '/builder'
+      fullPath: '/builder'
+      preLoaderRoute: typeof BuilderRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/enterprise': {
@@ -1822,6 +1842,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
+  BuilderRoute: BuilderRoute,
   EnterpriseRoute: EnterpriseRouteWithChildren,
   ForgotPasswordRoute: ForgotPasswordRoute,
   GettingStartedRoute: GettingStartedRoute,
