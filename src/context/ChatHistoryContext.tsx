@@ -123,6 +123,26 @@ function rowToMessage(row: any): ChatMessage {
   };
 }
 
+/** Rows → messages in true conversation order, without copies left by older saving bugs.
+ * Ties on created_at (older rows saved in one batch share a timestamp) put the question before its answer.
+ * A repeated message is hidden only when it is an exact copy of an earlier one with no reply of its own;
+ * stored rows are never deleted. */
+export function rowsToConversation(rows: any[]): ChatMessage[] {
+  const sorted = rows.map((r, i) => ({ r, i, t: Date.parse(r.created_at) || 0 })).sort((a, b) =>
+    a.t - b.t || (a.r.role === b.r.role ? a.i - b.i : a.r.role === "user" ? -1 : 1));
+  const msgs = sorted.map((x) => rowToMessage(x.r));
+  const seen = new Set<string>();
+  return msgs.filter((m, i) => {
+    const key = `${m.role}\u0000${m.content}\u0000${m.imageUrl ?? ""}`;
+    const dup = seen.has(key);
+    seen.add(key);
+    if (!dup) return true;
+    if (m.role === "assistant") return false;
+    const next = msgs[i + 1];
+    return !!next && next.role === "assistant"; // a repeated question that did get its own answer is real
+  });
+}
+
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   // Initialize from localStorage cache for instant render
   const [history, setHistory] = useState<ChatHistoryItem[]>(() => lsGetSessions());
@@ -181,49 +201,28 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   // Load messages for a specific chat session
+  // Always reads the saved conversation (the local copy is only a fallback when offline).
+  // Throws Error("not_found") when the chat doesn't exist or isn't this user's, Error("unavailable") when unreachable.
   const loadChatMessages = useCallback(async (sessionId: string): Promise<ChatMessage[]> => {
-    // Try localStorage cache first for instant load
-    const cached = lsGetMessages(sessionId);
-    if (cached && cached.length > 0) {
-      setHistory((prev) =>
-        prev.map((h) => (h.id === sessionId ? { ...h, messages: cached } : h))
-      );
-      // Still fetch from DB in background to get latest
-      supabase
-        .from("chat_messages")
-        .select("*")
-        .eq("session_id", sessionId)
-        .order("created_at", { ascending: true })
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            const msgs = data.map(rowToMessage);
-            lsSetMessages(sessionId, msgs);
-            setHistory((prev) =>
-              prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
-            );
-          }
-        });
-      return cached;
-    }
-
     const { data, error } = await supabase
       .from("chat_messages")
       .select("*")
       .eq("session_id", sessionId)
       .order("created_at", { ascending: true });
-
     if (error) {
       console.error("Failed to load chat messages:", error);
-      return [];
+      const cached = lsGetMessages(sessionId);
+      if (cached && cached.length > 0) return cached;
+      throw new Error("unavailable");
     }
-
-    const msgs = (data || []).map(rowToMessage);
+    if (!data || data.length === 0) {
+      const { data: session, error: sErr } = await supabase.from("chat_sessions").select("id").eq("id", sessionId).maybeSingle();
+      if (sErr) throw new Error("unavailable");
+      if (!session) { lsRemoveMessages(sessionId); throw new Error("not_found"); }
+    }
+    const msgs = rowsToConversation(data || []);
     lsSetMessages(sessionId, msgs);
-
-    setHistory((prev) =>
-      prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
-    );
-
+    setHistory((prev) => prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h)));
     return msgs;
   }, []);
 
@@ -326,8 +325,19 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     // Task messages are restored from the server's task records, so they are not saved as chat rows.
     const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
+    // Each row carries its own strictly increasing time so the question always sorts before its answer
+    // (rows saved in one batch used to share the server's "now").
+    const times = new Map<string, string>();
+    let last = 0;
+    for (const m of messages) {
+      let t = new Date(m.timestamp as any).getTime() || Date.now();
+      if (t <= last) t = last + 1;
+      last = t;
+      times.set(m.id, new Date(t).toISOString());
+    }
     const rows = pending.map((m) => {
       return {
+        created_at: times.get(m.id),
         id: UUID.test(m.id) ? m.id : stableRowId(id, m.id),
         session_id: id,
         role: m.role as string,
