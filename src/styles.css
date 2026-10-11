@@ -259,3 +259,4 @@
 .code-canvas .hljs-type, .code-canvas .hljs-params, .code-canvas .hljs-symbol, .code-canvas .hljs-bullet { color: var(--cc-type); }
 .code-canvas header { border-color: var(--cc-line); }
 .code-canvas header button, .code-canvas header span { color: var(--cc-fg); }
+@media (prefers-color-scheme: dark) { :root:not(.light) .code-canvas { --cc-bg:#1f1f1f; --cc-fg:#e6edf3; --cc-line:#3a3a3a; --cc-com:#8b949e; --cc-kw:#ff7b72; --cc-str:#a5d6ff; --cc-fn:#d2a8ff; --cc-tag:#7ee787; --cc-attr:#79c0ff; --cc-type:#ffa657; } }
