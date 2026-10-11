@@ -11,9 +11,8 @@ export type Plan = { steps: PlanStep[]; reply?: string };
 /** Pulls the first JSON object out of a model reply and keeps only known tools. */
 export function parsePlan(text: string, known: (id: string) => boolean): Plan {
   const t = text.replace(/<think>[\s\S]*?<\/think>/g, "");
-  const start = t.indexOf("{"), end = t.lastIndexOf("}");
-  if (start < 0 || end <= start) throw new Error("no JSON");
-  const j = JSON.parse(t.slice(start, end + 1));
+  const j = firstJsonObject(t);
+  if (!j) throw new Error("no JSON object");
   const steps = (Array.isArray(j.steps) ? j.steps : []).filter((s: any) => s && typeof s.tool === "string").slice(0, MAX_STEPS);
   const unknown = steps.find((s: any) => !known(s.tool));
   if (unknown) throw new Error(`unknown tool ${unknown.tool}`);
@@ -36,7 +35,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
   let plan: Plan | null = null, lastErr = "";
   for (let a = 0; a < 2 && !plan; a++) {
     const { text } = await complete(SYSTEM(), a ? `${ask}\n\nYour previous reply was invalid (${lastErr}). Reply with valid JSON only.` : ask, { maxTokens: 1500 });
-    try { plan = parsePlan(text, (id) => TOOL_MAP.has(id)); } catch (e: any) { lastErr = e.message; }
+    try { plan = parsePlan(text, (id) => TOOL_MAP.has(id)); } catch (e: any) { lastErr = e.message; console.warn("[agent] plan parse failed:", e.message, JSON.stringify(text.slice(0, 400))); }
   }
   if (!plan) throw new Error("I couldn't work out which tools to use. Please rephrase the request.");
   if (!plan.steps.length) {
@@ -55,7 +54,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     const step = plan.steps[i];
     const tool = TOOL_MAP.get(step.tool)!;
     await job.step("processing", `Step ${i + 1}/${plan.steps.length}: ${tool.id}${step.why ? ` — ${step.why}` : ""}`);
-    let params = step.params ?? {}, out, error = "";
+    let params = normalizeParams(step.params ?? {}, ctx.files.map((f) => f.name)), out, error = "";
     for (let attempt = 0; attempt <= MAX_STEP_REPAIRS; attempt++) {
       try { out = await tool.run(ctx, params); break; }
       catch (e: any) {
@@ -89,6 +88,29 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
     results.push({ tool: tool.id, category: tool.category, text: out.text?.slice(0, 30000), data: safeData(out.data), preview: out.preview, artifacts });
   }
   await job.finish({ prompt: input.prompt, steps: results, answer: plan.reply });
+}
+
+/** Finds the first balanced {...} block that parses as JSON (ignores fences and chatter around it). */
+export function firstJsonObject(t: string): any {
+  for (let s = t.indexOf("{"); s >= 0; s = t.indexOf("{", s + 1)) {
+    let depth = 0, inStr = false, esc = false;
+    for (let i = s; i < t.length; i++) {
+      const c = t[i];
+      if (inStr) { if (esc) esc = false; else if (c === "\\") esc = true; else if (c === '"') inStr = false; continue; }
+      if (c === '"') inStr = true;
+      else if (c === "{") depth++;
+      else if (c === "}" && --depth === 0) { try { const v = JSON.parse(t.slice(s, i + 1)); if (v && typeof v === "object" && ("steps" in v || "reply" in v)) return v; } catch { /* keep scanning */ } break; }
+    }
+  }
+  return null;
+}
+
+/** Models sometimes put an attached file's name into a text field; route it to the file param instead. */
+export function normalizeParams(params: Record<string, unknown>, fileNames: string[]) {
+  const out: Record<string, unknown> = { ...params };
+  for (const [k, v] of Object.entries(out)) if (k !== "file" && typeof v === "string" && fileNames.includes(v)) { delete out[k]; out.file = v; }
+  if (typeof out.sheet === "string" && fileNames.includes(out.sheet as string)) delete out.sheet;
+  return out;
 }
 
 function safeData(d: unknown) { if (d == null) return undefined; const s = JSON.stringify(d); return s.length > 40000 ? undefined : d; }
