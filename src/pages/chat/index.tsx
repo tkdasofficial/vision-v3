@@ -59,6 +59,8 @@ const Index = ({ isIncognito = false, creationMode }: { isIncognito?: boolean; c
   }, [urlChatId]);
 
   const handleNewChat = () => {
+    wanted.current = undefined;
+    setLoadError(null);
     setSelectedTool(undefined);
     setActiveChatId(undefined);
     setLoadedMessages(undefined);
@@ -87,7 +89,7 @@ const Index = ({ isIncognito = false, creationMode }: { isIncognito?: boolean; c
   }, [navigate, base]);
 
   const activeChat = activeChatId ? getChatById(activeChatId) : undefined;
-  const initialMessages = activeChatId ? loadedMessages ?? (activeChatId === justCreatedId(activeChat) ? activeChat?.messages : undefined) : undefined;
+  const initialMessages = activeChatId ? loadedMessages ?? activeChat?.messages : undefined;
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden">
