@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
-import { ArrowUp, Mic, MicOff, X, FileText } from "lucide-react";
+import { ArrowUp, Mic, MicOff, X, Pencil } from "lucide-react";
+import { FileChip, ImageTile, PASTE_CARD_LINES, lineCount, pastedTitle } from "@/components/chat/user-message";
+import type { PastedBlock } from "@/lib/types";
+import { FileText } from "lucide-react";
 import AttachMenu, { ACCEPT } from "./attach-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,21 +16,26 @@ import { readCachedPrefs } from "@/lib/settings";
 type Props = {
   toolName?: string;
   creationMode?: CreationMode;
-  onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => void;
+  onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode, extras?: { typed: string; pasted: PastedBlock[] }) => void;
   onZipUpload?: (file: File) => void;
   onFileConvert?: (file: File) => void;
   /** Documents, data and audio go to the backend task agent together with the typed instruction. */
-  onSendFiles?: (message: string, files: File[]) => void;
+  onSendFiles?: (message: string, files: File[], extras?: { typed: string; pasted: PastedBlock[] }) => void;
   disabled?: boolean;
   /** Something is running (reply or task); the send button turns into a spinning stop button. */
   busy?: boolean;
   onStop?: () => void;
 };
 
+const RemoveBtn = ({ label, onClick }: { label: string; onClick: () => void }) => (
+  <button type="button" aria-label={label} onClick={onClick} className="absolute -right-2 -top-2 flex size-8 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"><X className="size-4" /></button>
+);
+
 const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, disabled, creationMode, busy, onStop }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [pasted, setPasted] = useState<PastedBlock[]>([]);
   const [taskMode, setTaskMode] = useState<ChatMode>("default");
   // Start in the user's preferred default mode (Settings → AI Preferences).
   useEffect(() => { setTaskMode(readCachedPrefs().defaultMode); }, []);
@@ -106,7 +114,22 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
   };
 
   const hasText = value.trim().length > 0;
-  const hasContent = hasText || attachedImage || attachedFiles.length > 0;
+  const hasContent = hasText || attachedImage || attachedFiles.length > 0 || pasted.length > 0;
+
+  // Pasting 50+ lines turns the text into its own card; shorter pastes stay normal text.
+  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const text = e.clipboardData.getData("text/plain");
+    if (!text || lineCount(text) < PASTE_CARD_LINES) return;
+    e.preventDefault();
+    setPasted((cur) => [...cur, { title: pastedTitle(text), lines: lineCount(text), text }]);
+  };
+  const editPasted = (i: number) => {
+    const block = pasted[i];
+    setPasted((cur) => cur.filter((_, j) => j !== i));
+    const next = value ? `${value}\n${block.text}` : block.text;
+    setValue(next); finalTranscriptRef.current = next;
+    requestAnimationFrame(autoResize);
+  };
 
   const handleSend = () => {
     if (!hasContent || disabled) return;
@@ -115,16 +138,21 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
       recognitionRef.current.stop();
       setIsListening(false);
     }
+    const typed = value.trim();
+    const extras = pasted.length ? { typed, pasted } : undefined;
+    const full = [typed, ...pasted.map((p) => p.text)].filter(Boolean).join("\n\n");
+    setPasted([]);
     if (attachedFiles.length && onSendFiles) {
-      onSendFiles(value.trim() || "Inspect these files and tell me what they contain.", attachedFiles);
+      onSendFiles(full || "Inspect these files and tell me what they contain.", attachedFiles, extras ?? { typed, pasted: [] });
       setValue(""); finalTranscriptRef.current = ""; setAttachedFiles([]);
       if (textareaRef.current) textareaRef.current.style.height = "auto";
       return;
     }
     onSend(
-      value.trim() || (attachedImage ? creationMode ? "Create using this image as reference" : "Analyze this image" : ""),
+      full || (attachedImage ? creationMode ? "Create using this image as reference" : "Analyze this image" : ""),
       attachedImage ? { base64: attachedImage.base64, mimeType: attachedImage.mimeType } : undefined,
-      taskMode
+      taskMode,
+      extras
     );
     setValue("");
     finalTranscriptRef.current = "";
@@ -213,37 +241,31 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
     <div className="w-full px-3 pb-3 pt-2 sm:px-4 sm:pb-4">
       <div className="max-w-2xl mx-auto">
         <PromptInput onSubmit={() => handleSend()} className="[&_[data-slot=input-group]]:rounded-[24px] [&_[data-slot=input-group]]:bg-card [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:ring-0! [&_[data-slot=input-group]]:focus-within:border-foreground/20">
-          {/* Attached image preview */}
-          {attachedImage && (
-            <div className="px-3 pt-3">
-              <div className="relative inline-block">
-                <img
-                  src={attachedImage.preview}
-                  alt="Attached"
-                  className="w-20 h-20 rounded-lg object-cover border border-border"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  aria-label="Remove attached image"
-                  onClick={() => setAttachedImage(null)}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center hover:opacity-80 transition-opacity"
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {attachedFiles.length > 0 && (
-            <div className="flex flex-wrap gap-2 px-3 pt-3">
+          {/* Attachments and pasted prompts: same look as in the sent message */}
+          {(attachedImage || attachedFiles.length > 0 || pasted.length > 0) && (
+            <div className="flex flex-wrap gap-3 px-3 pt-4 pr-5">
+              {attachedImage && (
+                <ImageTile src={attachedImage.preview} alt="Attached image">
+                  <RemoveBtn label="Remove attached image" onClick={() => setAttachedImage(null)} />
+                </ImageTile>
+              )}
               {attachedFiles.map((f, i) => (
-                <span key={`${f.name}-${i}`} className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full border border-border bg-muted py-1 pl-2.5 pr-1 text-xs">
-                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <span className="truncate">{f.name}</span>
-                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setAttachedFiles((cur) => cur.filter((_, j) => j !== i))} className="rounded-full p-0.5 hover:bg-background"><X className="h-3 w-3" /></button>
-                </span>
+                <FileChip key={`${f.name}-${i}`} name={f.name} kind={f.type.startsWith("image/") ? "image" : f.type.startsWith("video/") ? "video" : f.type.startsWith("audio/") ? "audio" : "file"}>
+                  <RemoveBtn label={`Remove ${f.name}`} onClick={() => setAttachedFiles((cur) => cur.filter((_, j) => j !== i))} />
+                </FileChip>
+              ))}
+              {pasted.map((p, i) => (
+                <div key={i} className="relative flex h-[72px] min-w-0 max-w-[260px] items-center gap-3 rounded-2xl border border-border bg-card pl-3 pr-5">
+                  <span className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-border bg-secondary"><FileText className="size-5 text-muted-foreground" /></span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-medium text-foreground">{p.title}</span>
+                    <span className="block text-xs text-muted-foreground">Markdown · {p.lines} lines</span>
+                  </span>
+                  <span className="absolute -right-2 -top-2 flex gap-1.5">
+                    <button type="button" aria-label="Edit pasted text" onClick={() => editPasted(i)} className="flex size-8 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"><Pencil className="size-3.5" /></button>
+                    <button type="button" aria-label="Remove pasted text" onClick={() => setPasted((cur) => cur.filter((_, j) => j !== i))} className="flex size-8 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"><X className="size-4" /></button>
+                  </span>
+                </div>
               ))}
             </div>
           )}
@@ -254,6 +276,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
               value={value}
               onChange={(e) => { setValue(e.target.value); finalTranscriptRef.current = e.target.value; autoResize(); }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               placeholder={creationMode ? `Describe your ${creationMode === "images" ? "image" : "video"}` : `Ask Vision${animatedDots}`}
               aria-label={creationMode ? "Creation prompt" : "Message Vision"}
               rows={1}

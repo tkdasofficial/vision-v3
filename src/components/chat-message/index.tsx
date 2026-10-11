@@ -16,6 +16,7 @@ import FileCreatorCard from "@/components/file-creator-card";
 import AgentProgressCard from "@/components/agent-progress-card";
 import StoryFlowCard from "@/components/story/story-flow-card";
 import CodeBlock from "@/components/chat/code-block";
+import UserMessage from "@/components/chat/user-message";
 import DocumentCard from "@/components/chat/document-card";
 
 type Props = { message: ChatMessageType; isNew?: boolean };
@@ -316,7 +317,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
     >
       {isUser ? (
         <div className="flex justify-end">
-          <UserBubble content={message.content} imageUrl={message.imageUrl} />
+          <UserMessage message={message} />
         </div>
       ) : (
         <div className="group relative w-full">
