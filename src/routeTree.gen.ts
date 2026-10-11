@@ -44,6 +44,7 @@ import { Route as AdminSystemRouteImport } from './routes/admin.system'
 import { Route as AdminUsersRouteImport } from './routes/admin.users'
 import { Route as ApiChatRouteImport } from './routes/api/chat'
 import { Route as ApiFilesRouteImport } from './routes/api/files'
+import { Route as ApiJobsRouteImport } from './routes/api/jobs'
 import { Route as AppSplatRouteImport } from './routes/app.$'
 import { Route as AuthForgetPasswordRouteImport } from './routes/auth.forget-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
@@ -85,6 +86,8 @@ import { Route as StudioVideosRouteImport } from './routes/studio.videos'
 import { Route as VerifySplatRouteImport } from './routes/verify.$'
 import { Route as VideosIndexRouteImport } from './routes/videos.index'
 import { Route as VideosVideoChatIdRouteImport } from './routes/videos.$videoChatId'
+import { Route as ApiArtifactsArtifactIdRouteImport } from './routes/api/artifacts.$artifactId'
+import { Route as ApiJobsJobIdRouteImport } from './routes/api/jobs.$jobId'
 import { Route as ApiOauthProviderRouteImport } from './routes/api/oauth.$provider'
 import { Route as AuthGithubCallbackRouteImport } from './routes/auth.github.callback'
 import { Route as AuthGoogleCallbackRouteImport } from './routes/auth.google.callback'
@@ -264,6 +267,11 @@ const ApiChatRoute = ApiChatRouteImport.update({
 const ApiFilesRoute = ApiFilesRouteImport.update({
   id: '/api/files',
   path: '/api/files',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsRoute = ApiJobsRouteImport.update({
+  id: '/api/jobs',
+  path: '/api/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppSplatRoute = AppSplatRouteImport.update({
@@ -472,6 +480,16 @@ const VideosVideoChatIdRoute = VideosVideoChatIdRouteImport.update({
   path: '/videos/$videoChatId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiArtifactsArtifactIdRoute = ApiArtifactsArtifactIdRouteImport.update({
+  id: '/api/artifacts/$artifactId',
+  path: '/api/artifacts/$artifactId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsJobIdRoute = ApiJobsJobIdRouteImport.update({
+  id: '/$jobId',
+  path: '/$jobId',
+  getParentRoute: () => ApiJobsRoute,
+} as any)
 const ApiOauthProviderRoute = ApiOauthProviderRouteImport.update({
   id: '/api/oauth/$provider',
   path: '/api/oauth/$provider',
@@ -534,6 +552,7 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -576,6 +595,8 @@ export interface FileRoutesByFullPath {
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
+  '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -615,6 +636,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -657,6 +679,8 @@ export interface FileRoutesByTo {
   '/projects': typeof ProjectsIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/videos': typeof VideosIndexRoute
+  '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
+  '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -699,6 +723,7 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/api/chat': typeof ApiChatRoute
   '/api/files': typeof ApiFilesRoute
+  '/api/jobs': typeof ApiJobsRouteWithChildren
   '/app/$': typeof AppSplatRoute
   '/auth/forget-password': typeof AuthForgetPasswordRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
@@ -741,6 +766,8 @@ export interface FileRoutesById {
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/videos/': typeof VideosIndexRoute
+  '/api/artifacts/$artifactId': typeof ApiArtifactsArtifactIdRoute
+  '/api/jobs/$jobId': typeof ApiJobsJobIdRoute
   '/api/oauth/$provider': typeof ApiOauthProviderRoute
   '/auth/github/callback': typeof AuthGithubCallbackRoute
   '/auth/google/callback': typeof AuthGoogleCallbackRoute
@@ -784,6 +811,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/api/chat'
     | '/api/files'
+    | '/api/jobs'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -826,6 +854,8 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/settings/'
     | '/videos/'
+    | '/api/artifacts/$artifactId'
+    | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
     | '/auth/github/callback'
     | '/auth/google/callback'
@@ -865,6 +895,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/api/chat'
     | '/api/files'
+    | '/api/jobs'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -907,6 +938,8 @@ export interface FileRouteTypes {
     | '/projects'
     | '/settings'
     | '/videos'
+    | '/api/artifacts/$artifactId'
+    | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
     | '/auth/github/callback'
     | '/auth/google/callback'
@@ -948,6 +981,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/api/chat'
     | '/api/files'
+    | '/api/jobs'
     | '/app/$'
     | '/auth/forget-password'
     | '/auth/forgot-password'
@@ -990,6 +1024,8 @@ export interface FileRouteTypes {
     | '/projects/'
     | '/settings/'
     | '/videos/'
+    | '/api/artifacts/$artifactId'
+    | '/api/jobs/$jobId'
     | '/api/oauth/$provider'
     | '/auth/github/callback'
     | '/auth/google/callback'
@@ -1019,6 +1055,7 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRouteWithChildren
   ApiChatRoute: typeof ApiChatRoute
   ApiFilesRoute: typeof ApiFilesRoute
+  ApiJobsRoute: typeof ApiJobsRouteWithChildren
   BillingPlansRoute: typeof BillingPlansRoute
   ChatChatIdRoute: typeof ChatChatIdRoute
   ChatIncognitoRoute: typeof ChatIncognitoRoute
@@ -1038,6 +1075,7 @@ export interface RootRouteChildren {
   ImagesIndexRoute: typeof ImagesIndexRoute
   ProjectsIndexRoute: typeof ProjectsIndexRoute
   VideosIndexRoute: typeof VideosIndexRoute
+  ApiArtifactsArtifactIdRoute: typeof ApiArtifactsArtifactIdRoute
   ApiOauthProviderRoute: typeof ApiOauthProviderRoute
 }
 
@@ -1286,6 +1324,13 @@ declare module '@tanstack/react-router' {
       path: '/api/files'
       fullPath: '/api/files'
       preLoaderRoute: typeof ApiFilesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs': {
+      id: '/api/jobs'
+      path: '/api/jobs'
+      fullPath: '/api/jobs'
+      preLoaderRoute: typeof ApiJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/$': {
@@ -1575,6 +1620,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VideosVideoChatIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/artifacts/$artifactId': {
+      id: '/api/artifacts/$artifactId'
+      path: '/api/artifacts/$artifactId'
+      fullPath: '/api/artifacts/$artifactId'
+      preLoaderRoute: typeof ApiArtifactsArtifactIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs/$jobId': {
+      id: '/api/jobs/$jobId'
+      path: '/$jobId'
+      fullPath: '/api/jobs/$jobId'
+      preLoaderRoute: typeof ApiJobsJobIdRouteImport
+      parentRoute: typeof ApiJobsRoute
+    }
     '/api/oauth/$provider': {
       id: '/api/oauth/$provider'
       path: '/api/oauth/$provider'
@@ -1746,6 +1805,17 @@ const VerifyRouteChildren: VerifyRouteChildren = {
 const VerifyRouteWithChildren =
   VerifyRoute._addFileChildren(VerifyRouteChildren)
 
+interface ApiJobsRouteChildren {
+  ApiJobsJobIdRoute: typeof ApiJobsJobIdRoute
+}
+
+const ApiJobsRouteChildren: ApiJobsRouteChildren = {
+  ApiJobsJobIdRoute: ApiJobsJobIdRoute,
+}
+
+const ApiJobsRouteWithChildren =
+  ApiJobsRoute._addFileChildren(ApiJobsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountRoute: AccountRoute,
@@ -1768,6 +1838,7 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRouteWithChildren,
   ApiChatRoute: ApiChatRoute,
   ApiFilesRoute: ApiFilesRoute,
+  ApiJobsRoute: ApiJobsRouteWithChildren,
   BillingPlansRoute: BillingPlansRoute,
   ChatChatIdRoute: ChatChatIdRoute,
   ChatIncognitoRoute: ChatIncognitoRoute,
@@ -1787,6 +1858,7 @@ const rootRouteChildren: RootRouteChildren = {
   ImagesIndexRoute: ImagesIndexRoute,
   ProjectsIndexRoute: ProjectsIndexRoute,
   VideosIndexRoute: VideosIndexRoute,
+  ApiArtifactsArtifactIdRoute: ApiArtifactsArtifactIdRoute,
   ApiOauthProviderRoute: ApiOauthProviderRoute,
 }
 export const routeTree = rootRouteImport

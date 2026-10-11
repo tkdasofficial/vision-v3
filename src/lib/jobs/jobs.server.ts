@@ -36,7 +36,7 @@ export class JobRun {
   async note(detail: string, progress: number | null = null) {
     const cur = this.steps[this.steps.length - 1];
     if (cur) cur.detail = detail;
-    await this.save(cur?.status ?? "processing" as JobStatus, detail, progress);
+    await this.save(cur?.status ?? "processing", detail, progress);
   }
   markCurrent(outcome: "ok" | "warn" | "error") { const cur = this.steps[this.steps.length - 1]; if (cur) cur.outcome = outcome; }
   warn(msg: string) { this.warnings.push(msg.slice(0, 400)); }

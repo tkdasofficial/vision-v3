@@ -12,7 +12,7 @@ export async function startJob(userId: string, id: string, type: JobType, input:
     else {
       let bytes: Uint8Array = input.bytes;
       if (!bytes && input.sourceArtifactId) {
-        await job.step("downloading", "Loading the uploaded ZIP" as any);
+        await job.step("downloading", "Loading the uploaded ZIP");
         bytes = await loadSource(userId, input.sourceArtifactId);
       }
       if (!bytes) throw new Error("No ZIP file provided.");
