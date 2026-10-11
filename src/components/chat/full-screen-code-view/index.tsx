@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 import { downloadText, filenameFor } from "@/lib/code-files";
 import { useCopy } from "@/components/chat/use-copy";
 
-type Props = { code: string; language?: string; filename?: string; onClose: () => void };
+type Props = { code: string; language?: string; filename?: string; html?: string; onClose: () => void };
 const MIN = 8, MAX = 32, BASE = 13;
 const clamp = (n: number) => Math.min(MAX, Math.max(MIN, n));
 
 // Full-screen overlay (chat keeps its place underneath). Scrolls both ways and zooms with
 // pinch, Ctrl/⌘ + wheel or the zoom buttons — the code re-lays out sharply instead of blurring.
-export default function FullScreenCodeView({ code, language, filename, onClose }: Props) {
+export default function FullScreenCodeView({ code, language, filename, html, onClose }: Props) {
   const { copied, copy } = useCopy();
   const name = filenameFor(language, filename);
   const [size, setSize] = useState(BASE);
@@ -42,7 +42,7 @@ export default function FullScreenCodeView({ code, language, filename, onClose }
   }, [size]);
 
   return createPortal(
-    <div role="dialog" aria-modal="true" aria-label={name} className="fixed inset-0 z-[10000] flex flex-col bg-background pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div role="dialog" aria-modal="true" aria-label={name} className="fixed inset-0 z-[10000] code-canvas flex flex-col pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       <header className="flex items-center gap-1 border-b border-border px-2 py-2">
         <Button variant="ghost" size="icon" onClick={onClose} aria-label="Back" className="rounded-full"><ArrowLeft /></Button>
         <span className="min-w-0 flex-1 truncate px-1 font-mono text-sm text-muted-foreground">{name}</span>
@@ -50,7 +50,7 @@ export default function FullScreenCodeView({ code, language, filename, onClose }
         <Button variant="ghost" size="icon" onClick={() => copy(code)} aria-label={copied ? "Copied" : "Copy"} className="rounded-full">{copied ? <Check /> : <Copy />}</Button>
       </header>
       <div ref={area} className="relative flex-1 touch-pan-x touch-pan-y overflow-auto overscroll-contain">
-        <pre className="m-0 min-w-max whitespace-pre p-4 pb-20 pl-[max(1rem,env(safe-area-inset-left))]"><code className="bg-transparent p-0 font-mono leading-relaxed" style={{ fontSize: size }}>{code}</code></pre>
+        <pre className="m-0 min-w-max whitespace-pre p-4 pb-20 pl-[max(1rem,env(safe-area-inset-left))]">{html ? <code className="hljs bg-transparent p-0 font-mono leading-relaxed" style={{ fontSize: size }} dangerouslySetInnerHTML={{ __html: html }} /> : <code className="bg-transparent p-0 font-mono leading-relaxed" style={{ fontSize: size }}>{code}</code>}</pre>
       </div>
       <div className="pointer-events-none fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] right-4 flex items-center gap-1 rounded-full border border-border bg-card p-1 shadow-sm">
         <Button variant="ghost" size="icon" className="pointer-events-auto size-8 rounded-full" onClick={() => setSize((s) => clamp(s - 1))} disabled={size <= MIN} aria-label="Zoom out"><ZoomOut className="size-4" /></Button>
