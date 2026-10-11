@@ -26,6 +26,9 @@ export function detectLanguage(code: string, given?: string): string | undefined
   if (/^<\?xml|^<svg/i.test(t)) return t.startsWith("<svg") ? "svg" : "xml";
   if (/^\s*[{\[]/.test(t)) { try { JSON.parse(code); return "json"; } catch { /* not json */ } }
   if (/^[.#]?[\w-]+(\s*[,>+~]?\s*[.#]?[\w-:]+)*\s*\{[^}]*:[^}]*;/m.test(t) && !/\b(function|const|let|return)\b/.test(t)) return "css";
+  if (/^\s*(def |from \w+ import |import \w+$|print\()/m.test(t)) return "python";
+  if (/:\s*(string|number|boolean)\b|^\s*(interface|type) \w+/m.test(t) && /\b(const|let|function|export)\b/.test(t)) return "typescript";
+  if (/\b(const|let|var|function|=>|console\.|document\.|require\()/.test(t)) return "javascript";
   return highlight(code).language;
 }
 
