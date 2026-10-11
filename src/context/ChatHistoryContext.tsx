@@ -123,6 +123,26 @@ function rowToMessage(row: any): ChatMessage {
   };
 }
 
+/** Rows → messages in true conversation order, without copies left by older saving bugs.
+ * Ties on created_at (older rows saved in one batch share a timestamp) put the question before its answer.
+ * A repeated message is hidden only when it is an exact copy of an earlier one with no reply of its own;
+ * stored rows are never deleted. */
+function rowsToConversation(rows: any[]): ChatMessage[] {
+  const sorted = rows.map((r, i) => ({ r, i, t: Date.parse(r.created_at) || 0 })).sort((a, b) =>
+    a.t - b.t || (a.r.role === b.r.role ? a.i - b.i : a.r.role === "user" ? -1 : 1));
+  const msgs = sorted.map((x) => rowToMessage(x.r));
+  const seen = new Set<string>();
+  return msgs.filter((m, i) => {
+    const key = `${m.role}\u0000${m.content}\u0000${m.imageUrl ?? ""}`;
+    const dup = seen.has(key);
+    seen.add(key);
+    if (!dup) return true;
+    if (m.role === "assistant") return false;
+    const next = msgs[i + 1];
+    return !!next && next.role === "assistant"; // a repeated question that did get its own answer is real
+  });
+}
+
 export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
   // Initialize from localStorage cache for instant render
   const [history, setHistory] = useState<ChatHistoryItem[]>(() => lsGetSessions());
@@ -196,7 +216,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
         .order("created_at", { ascending: true })
         .then(({ data }) => {
           if (data && data.length > 0) {
-            const msgs = data.map(rowToMessage);
+            const msgs = rowsToConversation(data);
             lsSetMessages(sessionId, msgs);
             setHistory((prev) =>
               prev.map((h) => (h.id === sessionId ? { ...h, messages: msgs } : h))
@@ -217,7 +237,7 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
       return [];
     }
 
-    const msgs = (data || []).map(rowToMessage);
+    const msgs = rowsToConversation(data || []);
     lsSetMessages(sessionId, msgs);
 
     setHistory((prev) =>
@@ -326,8 +346,19 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
     // Task messages are restored from the server's task records, so they are not saved as chat rows.
     const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
+    // Each row carries its own strictly increasing time so the question always sorts before its answer
+    // (rows saved in one batch used to share the server's "now").
+    const times = new Map<string, string>();
+    let last = 0;
+    for (const m of messages) {
+      let t = new Date(m.timestamp as any).getTime() || Date.now();
+      if (t <= last) t = last + 1;
+      last = t;
+      times.set(m.id, new Date(t).toISOString());
+    }
     const rows = pending.map((m) => {
       return {
+        created_at: times.get(m.id),
         id: UUID.test(m.id) ? m.id : stableRowId(id, m.id),
         session_id: id,
         role: m.role as string,
