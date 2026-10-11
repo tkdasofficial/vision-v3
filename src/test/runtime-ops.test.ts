@@ -45,7 +45,7 @@ describe("runtime output validation", () => {
     expect(outputMatches("webp", new TextEncoder().encode("RIFF\0\0\0\0WEBPVP8 "))).toBe(true);
     expect(outputMatches("mp4", new TextEncoder().encode("\0\0\0\x18ftypisom"))).toBe(true);
   });
-  it("builds safe output names", () => { expect(outputName("../../evil<>.png", "jpeg")).toBe("______evil__.jpg"); });
+  it("builds safe output names", () => { expect(outputName("../../evil<>.png", "jpeg")).toBe("evil__.jpg"); });
 });
 
 describe("relay runner authentication", () => {

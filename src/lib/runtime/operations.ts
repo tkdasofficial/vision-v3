@@ -104,6 +104,6 @@ export function outputMatches(target: string, bytes: Uint8Array): boolean { retu
 export const TARGET_MIME: Record<string, string> = { png: "image/png", jpeg: "image/jpeg", webp: "image/webp", gif: "image/gif", bmp: "image/bmp", tiff: "image/tiff", ico: "image/x-icon", mp4: "video/mp4", webm: "video/webm", mov: "video/quicktime", mkv: "video/x-matroska" };
 
 export function outputName(source: string, target: string) {
-  const base = source.replace(/\.[^.]+$/, "").replace(/[^\w.\- ]+/g, "_").slice(0, 80) || "converted";
+  const base = (source.split(/[\\/]/).pop() ?? "").replace(/\.[^.]+$/, "").replace(/[^\w.\- ]+/g, "_").replace(/^\.+/, "").slice(0, 80) || "converted";
   return `${base}.${target === "jpeg" ? "jpg" : target}`;
 }
