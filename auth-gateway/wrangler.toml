@@ -10,3 +10,15 @@ ALLOWED_RETURN_ORIGINS = "https://id-preview--0c8c8919-dbe8-4367-b6db-b7bce12fb4
 # Secrets (set with `wrangler secret put`, never committed):
 # GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
 # STATE_KEY, SIGNING_KEY
+
+# Gmail SMTP credentials from the account Secrets Store (used by POST /mail).
+[[secrets_store_secrets]]
+binding = "SMTP_EMAIL"
+store_id = "b4394e5cddb24a46b6984c69ce02b8b6"
+secret_name = "SMTP_EMAIL"
+
+[[secrets_store_secrets]]
+binding = "SMTP_PASSWORD"
+store_id = "b4394e5cddb24a46b6984c69ce02b8b6"
+secret_name = "SMTP_PASSWORD"
+# MAIL_TOKEN: Worker secret shared with the app (app env MAIL_TOKEN).

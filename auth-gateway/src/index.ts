@@ -238,8 +238,9 @@ async function callback(req: Request, env: Env, p: Provider) {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env & MailEnv): Promise<Response> {
     const url = new URL(req.url);
+    if (url.pathname === "/mail") return handleMail(req, env);
     if (req.method !== "GET" && req.method !== "HEAD") return text(405, "Method not allowed");
     if (url.pathname === "/health") return text(200, "ok");
     if (url.pathname === "/.well-known/jwks.json") {
