@@ -119,7 +119,8 @@ export function objectsToRows(items: Record<string, unknown>[]): unknown[][] {
   const keys = [...new Set(items.flatMap((o) => Object.keys(o ?? {})))];
   return [keys, ...items.map((o) => keys.map((k) => (o as any)?.[k]))];
 }
-function autoType(s: string): unknown {
+export const typedRows = (rows: string[][]): unknown[][] => rows.map((r, i) => (i ? r.map(autoType) : r));
+export function autoType(s: string): unknown {
   const t = s.trim();
   if (t !== "" && /^-?\d+(\.\d+)?$/.test(t) && !(t.length > 1 && t.startsWith("0") && !t.startsWith("0."))) return Number(t);
   if (t === "true" || t === "false") return t === "true";
@@ -282,7 +283,7 @@ export function sniffType(b: Uint8Array): { mime: string; ext: string } | null {
 export function imageSize(b: Uint8Array): { width: number; height: number } | null {
   const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
   const t = sniffType(b)?.ext;
-  if (t === "png" && b.length > 24) return { width: dv.getUint32(16), height: dv.getUint32(20) };
+  if (t === "png" && b.length >= 24) return { width: dv.getUint32(16), height: dv.getUint32(20) };
   if (t === "gif") return { width: dv.getUint16(6, true), height: dv.getUint16(8, true) };
   if (t === "bmp") return { width: dv.getInt32(18, true), height: Math.abs(dv.getInt32(22, true)) };
   if (t === "jpg") {

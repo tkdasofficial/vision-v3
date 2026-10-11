@@ -19,7 +19,7 @@ export async function listJobs(sessionId?: string): Promise<JobView[]> {
 }
 
 /** Starts a job; `onUpdate` receives each polled status while the server works. */
-export async function runJob(type: JobType, payload: { input?: unknown; file?: File; sessionId?: string | null }, onUpdate: (j: JobView) => void, existingId?: string): Promise<JobView> {
+export async function runJob(type: JobType, payload: { input?: unknown; file?: File; files?: File[]; prompt?: string; sessionId?: string | null }, onUpdate: (j: JobView) => void, existingId?: string): Promise<JobView> {
   const id = existingId ?? crypto.randomUUID();
   let done = false;
   const poll = async () => {
@@ -33,7 +33,13 @@ export async function runJob(type: JobType, payload: { input?: unknown; file?: F
   void poll();
   try {
     let res: Response;
-    if (payload.file) {
+    if (payload.files) {
+      const fd = new FormData();
+      fd.set("id", id); fd.set("type", "agent_task"); fd.set("prompt", payload.prompt ?? "");
+      for (const f of payload.files) fd.append("file", f);
+      if (payload.sessionId) fd.set("sessionId", payload.sessionId);
+      res = await fetch("/api/jobs", { method: "POST", body: fd, credentials: "include" });
+    } else if (payload.file) {
       const fd = new FormData();
       fd.set("id", id); fd.set("file", payload.file);
       if (payload.sessionId) fd.set("sessionId", payload.sessionId);

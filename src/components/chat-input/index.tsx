@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
-import { ArrowUp, Mic, MicOff, X } from "lucide-react";
+import { ArrowUp, Mic, MicOff, X, FileText } from "lucide-react";
 import AttachMenu, { ACCEPT } from "./attach-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,12 +16,15 @@ type Props = {
   onSend: (message: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => void;
   onZipUpload?: (file: File) => void;
   onFileConvert?: (file: File) => void;
+  /** Documents, data and audio go to the backend task agent together with the typed instruction. */
+  onSendFiles?: (message: string, files: File[]) => void;
   disabled?: boolean;
 };
 
-const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, creationMode }: Props) => {
+const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, disabled, creationMode }: Props) => {
   const [value, setValue] = useState("");
   const [attachedImage, setAttachedImage] = useState<{ base64: string; mimeType: string; preview: string } | null>(null);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [taskMode, setTaskMode] = useState<ChatMode>("default");
   // Start in the user's preferred default mode (Settings → AI Preferences).
   useEffect(() => { setTaskMode(readCachedPrefs().defaultMode); }, []);
@@ -100,7 +103,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
   };
 
   const hasText = value.trim().length > 0;
-  const hasContent = hasText || attachedImage;
+  const hasContent = hasText || attachedImage || attachedFiles.length > 0;
 
   const handleSend = () => {
     if (!hasContent || disabled) return;
@@ -108,6 +111,12 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
     if (isListening && recognitionRef.current) {
       recognitionRef.current.stop();
       setIsListening(false);
+    }
+    if (attachedFiles.length && onSendFiles) {
+      onSendFiles(value.trim() || "Inspect these files and tell me what they contain.", attachedFiles);
+      setValue(""); finalTranscriptRef.current = ""; setAttachedFiles([]);
+      if (textareaRef.current) textareaRef.current.style.height = "auto";
+      return;
     }
     onSend(
       value.trim() || (attachedImage ? creationMode ? "Create using this image as reference" : "Analyze this image" : ""),
@@ -144,8 +153,14 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const picked = Array.from(e.target.files ?? []);
+    const file = picked[0];
     if (!file) return;
+    if (picked.length > 1 && onSendFiles) {
+      setAttachedFiles((cur) => [...cur, ...picked].slice(0, 10));
+      e.target.value = "";
+      return;
+    }
 
     // Handle ZIP files
     if (file.name.toLowerCase().endsWith(".zip") || file.type === "application/zip" || file.type === "application/x-zip-compressed") {
@@ -155,7 +170,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
     }
 
     // Handle image files for chat attachment
-    if (file.type.startsWith("image/") && !e.target.dataset.convertMode) {
+    if (file.type.startsWith("image/") && !(e.target.dataset.convertMode && onSendFiles)) {
       const reader = new FileReader();
       reader.onload = () => {
         const result = reader.result as string;
@@ -167,7 +182,14 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
       return;
     }
 
-    // Handle any other file for conversion
+    // Documents, data, audio (and images picked as files): attach for the task agent.
+    const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi)$/i.test(file.name);
+    if (onSendFiles && !isVideo) {
+      setAttachedFiles((cur) => [...cur, file].slice(0, 10));
+      e.target.value = "";
+      return;
+    }
+    // Video stays with the in-browser converter.
     onFileConvert?.(file);
     e.target.value = "";
   };
@@ -210,6 +232,18 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
             </div>
           )}
 
+          {attachedFiles.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-3 pt-3">
+              {attachedFiles.map((f, i) => (
+                <span key={`${f.name}-${i}`} className="inline-flex max-w-[220px] items-center gap-1.5 rounded-full border border-border bg-muted py-1 pl-2.5 pr-1 text-xs">
+                  <FileText className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                  <span className="truncate">{f.name}</span>
+                  <button type="button" aria-label={`Remove ${f.name}`} onClick={() => setAttachedFiles((cur) => cur.filter((_, j) => j !== i))} className="rounded-full p-0.5 hover:bg-background"><X className="h-3 w-3" /></button>
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Textarea — grows vertically, shape stays the same */}
             <PromptInputTextarea
               ref={textareaRef}
@@ -238,6 +272,8 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, disabled, cre
                   const el = fileInputRef.current;
                   if (!el) return;
                   el.accept = ACCEPT[kind];
+                  el.multiple = kind === "file" && !!onSendFiles;
+                  el.dataset.convertMode = kind === "file" ? "1" : "";
                   el.click();
                 }}
               />
