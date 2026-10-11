@@ -1,0 +1,49 @@
+// Task Router: classifies each request independently. Pure and browser-safe so it is unit-tested.
+import type { ChatMode, OutputKind } from "./modes";
+
+export type TaskClassification = {
+  executionMode: ChatMode;
+  taskType: "chat" | "light" | "reasoning" | "research" | "code";
+  requiresWebSearch: boolean;
+  requiresMultimodalProcessing: boolean;
+  requiresCodeOutput: boolean;
+  requiresResearchDocument: boolean;
+  output: OutputKind;
+};
+
+const GREETING = /^\s*(hi|hello|hey|yo|thanks|thank you|ok|okay|good (morning|evening|night))\b[\s!.?]*$/i;
+// Asking ABOUT something ("what is…", "explain…") is a question, not a request to produce it.
+const QUESTION_ABOUT = /^\s*(what|why|how does|how do|who|when|is|are|does|can you explain|explain|define|tell me about)\b/i;
+const CODE_ACTION = /\b(write|create|build|make|generate|implement|refactor|fix|debug|convert|add)\b[\s\S]{0,60}\b(code|function|script|component|class|page|program|api|endpoint|query|regex|html|css|javascript|typescript|python|react|sql|app|bug)\b/i;
+const HAS_CODE = /```|^\s*(import|export|def|class|function|const|let|SELECT)\b/m;
+const RESEARCH_ACTION = /\b(research|investigate|survey|literature review|market analysis|report on|write a report|prepare a report|latest developments)\b/i;
+const DEEP_ACTION = /\b(in depth|in-depth|step[- ]by[- ]step|prove|derive|analy[sz]e|thoroughly|rigorous|difficult|complex|trade-?offs?)\b/i;
+
+export function classifyTask(input: { text: string; mode: ChatMode; hasMedia: boolean }): TaskClassification {
+  const text = input.text.trim();
+  const isQuestionAbout = QUESTION_ABOUT.test(text) && !/\b(write|build|create|generate|prepare)\b/i.test(text);
+  const wantsCode = CODE_ACTION.test(text) && !isQuestionAbout;
+  const pastedCode = HAS_CODE.test(text);
+  const wantsReport = RESEARCH_ACTION.test(text) && !isQuestionAbout;
+  const wantsDeep = DEEP_ACTION.test(text) || text.length > 1200;
+
+  let mode: ChatMode = input.mode;
+  if (mode === "default") {
+    if (GREETING.test(text) || input.hasMedia) mode = "default";
+    else if (wantsReport) mode = "research";
+    else if (wantsCode || (pastedCode && /\b(fix|error|bug|why|wrong|review)\b/i.test(text))) mode = "coding";
+    else if (wantsDeep) mode = "deep";
+  }
+
+  const light = mode === "default" && (GREETING.test(text) || text.length < 80);
+  return {
+    executionMode: mode,
+    taskType: mode === "research" ? "research" : mode === "coding" ? "code" : mode === "deep" ? "reasoning" : light ? "light" : "chat",
+    // Live search is a research need; whether it is actually available is decided by the server.
+    requiresWebSearch: mode === "research",
+    requiresMultimodalProcessing: input.hasMedia,
+    requiresCodeOutput: mode === "coding",
+    requiresResearchDocument: mode === "research",
+    output: mode === "research" ? "document" : mode === "coding" ? "code" : "chat",
+  };
+}

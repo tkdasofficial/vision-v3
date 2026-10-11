@@ -10,7 +10,14 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AuthProvider } from "@/context/AuthContext";
+import { RouteGuard } from "@/components/route-guard";
+import { ChatHistoryProvider } from "@/context/ChatHistoryContext";
 import appCss from "../styles.css?url";
+import { CHUNK_ERROR_RE, recoverFromChunkError } from "@/lib/chunk-recovery";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
@@ -39,6 +46,8 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
+    // Old page files after a new version went live: reload once to get the new ones.
+    if (CHUNK_ERROR_RE.test(String((error as any)?.message)) && recoverFromChunkError()) return;
     reportLovableError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
@@ -78,11 +87,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Vision" },
+      { name: "description", content: "Vision — your all-in-one AI workspace." },
+      { property: "og:title", content: "Vision" },
+      { property: "og:description", content: "Vision — your all-in-one AI workspace." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@Lovable" },
@@ -92,6 +100,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
@@ -103,9 +113,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
+        {/* Applies saved appearance settings before first paint to avoid a theme flash. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{var p=JSON.parse(localStorage.getItem("vision_prefs")||"{}"),e=document.documentElement;if(p.theme==="dark"||p.theme==="light")e.classList.add(p.theme);if(p.accent)e.dataset.accent=p.accent;if(p.fontSize)e.dataset.fontSize=p.fontSize;if(p.reduceMotion)e.classList.add("reduce-motion");if(p.highContrast)e.classList.add("high-contrast");if(p.largeTargets)e.classList.add("large-targets")}catch(_){}` }} />
       </head>
       <body>
         {children}
@@ -121,7 +133,17 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <TooltipProvider>
+        <AuthProvider>
+          <ChatHistoryProvider>
+            <Toaster />
+            <Sonner />
+            <RouteGuard>
+              <Outlet />
+            </RouteGuard>
+          </ChatHistoryProvider>
+        </AuthProvider>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 }
