@@ -42,6 +42,14 @@ export const Route = createFileRoute("/api/jobs")({
             if (!prompt.trim() && !files.length) return Response.json({ error: "Tell me what to do." }, { status: 400 });
             if (files.length > MAX_AGENT_FILES) return Response.json({ error: `Up to ${MAX_AGENT_FILES} files at a time.` }, { status: 413 });
             if (files.reduce((n, f) => n + f.size, 0) > MAX_AGENT_BYTES) return Response.json({ error: "Attached files can total up to 25 MB." }, { status: 413 });
+            const { detectRuntimeOp } = await import("@/lib/runtime/operations");
+            const rq = detectRuntimeOp(prompt, files.map((f) => ({ name: f.name, mime: f.type || "", size: f.size })));
+            if (rq && "error" in rq) return Response.json({ error: rq.error }, { status: 400 });
+            if (rq) {
+              const f = files[rq.fileIndex];
+              const job = await startJob(caller.user.id, id, "runtime_task", { operation: rq.operation, params: rq.params, fileName: f.name.replace(/[\\/\u0000-\u001f]/g, "_").slice(0, 120) || "file", mime: (f.type || "application/octet-stream").slice(0, 100), bytes: new Uint8Array(await f.arrayBuffer()) }, 1, sessionId);
+              return Response.json({ job });
+            }
             const list = await Promise.all(files.map(async (f) => ({ name: f.name.replace(/[\\/\u0000-\u001f]/g, "_").slice(0, 120) || "file", mime: (f.type || "application/octet-stream").slice(0, 100), bytes: new Uint8Array(await f.arrayBuffer()) })));
             const job = await startJob(caller.user.id, id, "agent_task", { prompt: prompt || "Inspect these files.", files: list }, 1, sessionId);
             return Response.json({ job });

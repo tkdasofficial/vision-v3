@@ -75,3 +75,4 @@ CREATE INDEX IF NOT EXISTS idx_jobs_session ON jobs(user_id, session_id);
 CREATE TABLE IF NOT EXISTS runtime_jobs (job_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, operation TEXT NOT NULL, params TEXT, input_key TEXT, input_name TEXT, input_mime TEXT, input_size INTEGER, input_sha256 TEXT, input_chunks INTEGER DEFAULT 0, status TEXT NOT NULL DEFAULT 'queued', stage TEXT, run_id TEXT, session_hash TEXT, session_expires TEXT, output_key TEXT, output_name TEXT, output_mime TEXT, output_size INTEGER, output_sha256 TEXT, output_chunks INTEGER, result TEXT, error TEXT, deadline TEXT, created_at TEXT, dispatched_at TEXT, started_at TEXT, finished_at TEXT, updated_at TEXT);
 CREATE INDEX IF NOT EXISTS idx_runtime_user_status ON runtime_jobs(user_id, status);
 CREATE INDEX IF NOT EXISTS idx_runtime_session ON runtime_jobs(session_hash);
+ALTER TABLE runtime_jobs ADD COLUMN gh_checked_at TEXT;

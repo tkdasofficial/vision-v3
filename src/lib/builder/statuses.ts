@@ -1,6 +1,8 @@
 // Controlled status vocabulary for jobs. Each value maps to a real backend operation.
 export const JOB_STATUSES = {
   queued: "Queued",
+  dispatched: "Waiting for Runner",
+  running: "Running",
   thinking: "Thinking",
   planning: "Planning",
   analyzing: "Analyzing",
@@ -27,14 +29,15 @@ export const JOB_STATUSES = {
   completed_with_warnings: "Completed with Warnings",
   failed: "Failed",
   cancelled: "Cancelled",
+  timed_out: "Timed Out",
 } as const;
 
 export type JobStatus = keyof typeof JOB_STATUSES;
-export const TERMINAL: JobStatus[] = ["completed", "completed_with_warnings", "failed", "cancelled"];
+export const TERMINAL: JobStatus[] = ["completed", "completed_with_warnings", "failed", "cancelled", "timed_out"];
 export const isTerminal = (s: JobStatus) => TERMINAL.includes(s);
 
 export type JobStep = { status: JobStatus; detail: string; at: string; endedAt?: string; outcome?: "ok" | "warn" | "error" };
-export type JobType = "code_export" | "project_generate" | "zip_analyze" | "agent_task";
+export type JobType = "code_export" | "project_generate" | "zip_analyze" | "agent_task" | "runtime_task";
 
 export type ArtifactRef = { id: string; name: string; size: number; kind: "file" | "zip" | "report" };
 

@@ -4,12 +4,18 @@ import type { JobType } from "@/lib/builder/statuses";
 import { createJob, getJob, safeError } from "./jobs.server";
 
 export async function startJob(userId: string, id: string, type: JobType, input: any, attempt = 1, sessionId: string | null = null) {
-  const stored = type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [] } : input;
+  const stored = type === "runtime_task" ? { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, sourceArtifactId: input.sourceArtifactId ?? null } : type === "zip_analyze" ? { fileName: input.fileName, sourceArtifactId: input.sourceArtifactId ?? null } : type === "agent_task" ? { prompt: input.prompt, sources: input.sources ?? [] } : input;
   const job = await createJob(id, userId, type, stored, attempt, sessionId);
   const { runCodeExport, runProjectGenerate, runZipAnalyze } = await import("./runners.server");
   try {
     if (type === "code_export") await runCodeExport(job, input);
     else if (type === "project_generate") await runProjectGenerate(job, input);
+    else if (type === "runtime_task") {
+      let bytes: Uint8Array = input.bytes;
+      if (!bytes && input.sourceArtifactId) { await job.step("downloading", "Loading the original file"); bytes = await loadSource(userId, input.sourceArtifactId); }
+      const { startRuntimeJob } = await import("@/lib/runtime/runtime.server");
+      await startRuntimeJob(job, { operation: input.operation, params: input.params, fileName: input.fileName, mime: input.mime, bytes });
+    }
     else if (type === "agent_task") {
       const files: { name: string; mime: string; bytes: Uint8Array }[] = input.files ?? [];
       const sources: { id: string; name: string; mime: string }[] = input.sources ?? [];
