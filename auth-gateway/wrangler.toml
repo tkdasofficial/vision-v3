@@ -1,0 +1,12 @@
+name = "vision"
+main = "src/index.ts"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[vars]
+# Exact origins the gateway may send users back to (comma-separated).
+ALLOWED_RETURN_ORIGINS = "https://id-preview--20844df6-065b-442c-8181-7b94b017b181.lovable.app,https://project--20844df6-065b-442c-8181-7b94b017b181-dev.lovable.app,https://project--20844df6-065b-442c-8181-7b94b017b181.lovable.app,http://localhost:8080"
+
+# Secrets (set with `wrangler secret put`, never committed):
+# GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, GITHUB_CLIENT_ID, GITHUB_CLIENT_SECRET,
+# STATE_KEY, SIGNING_KEY
