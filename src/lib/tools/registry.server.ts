@@ -144,7 +144,7 @@ export async function buildDocument(format: string, title: string, md: string): 
 
 async function sha(algo: string, bytes: Uint8Array) {
   const a = ({ sha1: "SHA-1", "sha-1": "SHA-1", sha256: "SHA-256", "sha-256": "SHA-256", sha384: "SHA-384", sha512: "SHA-512", "sha-512": "SHA-512" } as any)[algo.toLowerCase()] ?? "SHA-256";
-  const d = new Uint8Array(await crypto.subtle.digest(a, bytes));
+  const d = new Uint8Array(await crypto.subtle.digest(a, bytes as Uint8Array<ArrayBuffer>));
   return { algorithm: a, hex: Array.from(d, (b) => b.toString(16).padStart(2, "0")).join("") };
 }
 
@@ -153,7 +153,7 @@ export const TOOLS: Tool[] = [
   // Files & metadata
   { id: "file_info", category: "Metadata", desc: "Inspect attached files: real type, size, SHA-256, image size, PDF pages/metadata, Word properties, sheet sizes", params: "{}", run: async (c) => {
     if (!c.files.length) throw new Error("Attach a file to inspect.");
-    const out = [];
+    const out: any[] = [];
     for (const f of c.files) {
       const info: any = { name: f.name, size: P.fmtBytes(f.bytes.length), detectedType: P.sniffType(f.bytes)?.mime ?? (f.mime || "unknown"), sha256: (await sha("sha256", f.bytes)).hex };
       const k = kindOf(f);
@@ -176,7 +176,7 @@ export const TOOLS: Tool[] = [
   { id: "ocr", category: "Content extraction & OCR", desc: "Read text from images (photos, screenshots, scans) with the vision model", params: '{"instructions"?: string}', run: async (c, p) => {
     const imgs = many(c, ["image"]); if (!imgs.length) throw new Error("Attach an image to read.");
     const { vision } = await import("./ai.server");
-    const parts = [];
+    const parts: string[] = [];
     for (const f of imgs) { await c.note(`Reading ${f.name}`); parts.push(`${imgs.length > 1 ? `## ${f.name}\n\n` : ""}${await vision(f.bytes, P.sniffType(f.bytes)?.mime ?? f.mime, p?.instructions || "Transcribe all text in this image exactly, keeping line breaks and table layout. Output only the text.")}`); }
     const t = parts.join("\n\n"); return { text: t, files: [txt(`${base(imgs[0].name)}-ocr.txt`, t)] };
   } },
@@ -348,7 +348,7 @@ export const TOOLS: Tool[] = [
   { id: "hash", category: "Security & privacy", desc: "SHA-1/256/384/512 checksum of text or every attached file; optionally verify against an expected hash", params: '{"algorithm"?: string, "text"?: string, "expected"?: string}', run: async (c, p) => {
     const items = p?.text ? [{ name: "text", bytes: strToU8(p.text) }] : c.files.length ? c.files : c.lastText ? [{ name: "previous result", bytes: strToU8(c.lastText) }] : [];
     if (!items.length) throw new Error("Give me text or attach a file to hash.");
-    const res = []; for (const it of items) res.push({ name: it.name, ...(await sha(p?.algorithm ?? "sha256", it.bytes)) });
+    const res: any[] = []; for (const it of items) res.push({ name: it.name, ...(await sha(p?.algorithm ?? "sha256", it.bytes)) });
     const exp = p?.expected?.toLowerCase().trim();
     return { data: res, text: res.map((r) => `- **${r.name}** ${r.algorithm}: \`${r.hex}\`${exp ? (r.hex === exp ? " ✅ matches" : " ❌ does not match") : ""}`).join("\n") };
   } },

@@ -27,7 +27,7 @@ export async function vision(bytes: Uint8Array, mime: string, prompt: string): P
 export async function transcribe(bytes: Uint8Array): Promise<{ text: string; vtt: string; words: number }> {
   if (bytes.length > 25 * 1024 * 1024) throw new Error("Audio files up to 25 MB can be transcribed.");
   const { url, token } = base();
-  const res = await fetch(url + "@cf/openai/whisper", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: bytes, signal: AbortSignal.timeout(120_000) });
+  const res = await fetch(url + "@cf/openai/whisper", { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: bytes as unknown as BodyInit, signal: AbortSignal.timeout(120_000) });
   const j: any = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(res.status === 429 ? "Transcription is busy. Please try again shortly." : "This audio couldn't be transcribed. Try MP3, WAV or OGG.");
   return { text: String(j.result?.text ?? "").trim(), vtt: String(j.result?.vtt ?? ""), words: j.result?.word_count ?? 0 };

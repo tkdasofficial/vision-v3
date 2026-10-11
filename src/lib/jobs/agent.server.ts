@@ -77,7 +77,7 @@ export async function runAgent(job: JobRun, input: AgentInput, save: (f: WorkFil
       throw new Error(error);
     }
     await job.step("verifying", `Checking ${tool.id} output`);
-    const artifacts = [];
+    const artifacts: any[] = [];
     for (const f of out.files ?? []) {
       const bad = await verifyOutput(f);
       if (bad) { job.warn(`${f.name} failed verification (${bad}) and was not saved.`); job.markCurrent("warn"); continue; }
