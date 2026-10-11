@@ -8,6 +8,16 @@ import remarkGfm from "remark-gfm";
 import { JOB_STATUSES, isTerminal, type JobView } from "@/lib/builder/statuses";
 import { cancelJob, downloadUrl, fetchJob } from "@/lib/builder/jobs-client";
 import CodeBlock from "@/components/chat/code-block";
+import { looksLikeCode } from "@/components/chat/highlight";
+
+const md = { pre: ({ children }: any) => <>{children}</>, code: ({ children, className, node }: any) => {
+  const text = String(children);
+  if (className?.startsWith("language-") || text.includes("\n")) return <CodeBlock code={text.replace(/\n$/, "")} language={className?.replace("language-", "") || undefined} filename={String(node?.data?.meta ?? "").match(/title="([^"]+)"/)?.[1]} />;
+  return <code className="rounded-md bg-accent px-1.5 py-0.5 font-mono text-[13px]">{children}</code>;
+} };
+const CleanText = ({ text }: { text: string }) => looksLikeCode(text)
+  ? <CodeBlock code={text.trim()} />
+  : <div className="prose prose-sm max-w-none text-foreground dark:prose-invert [&_pre]:my-0"><ReactMarkdown remarkPlugins={[remarkGfm]} components={md}>{text.slice(0, 60000)}</ReactMarkdown></div>;
 
 const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis", agent_task: "Task", runtime_task: "Background task" } as const;
 const fmt = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
@@ -45,6 +55,21 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
   // Finished code shows only the clean code canvas — no title, badge, icons or menu.
   if (job.type === "code_export" && r.content && (job.status === "completed" || job.status === "completed_with_warnings")) {
     return <CodeBlock code={r.content} language={r.language} filename={r.fileName} />;
+  }
+  // Finished tasks show only their result — no title, status words, step list or tick.
+  if (job.type === "agent_task" && job.status === "completed" && (r.answer || r.steps?.length)) {
+    const last = r.steps?.length ? r.steps[r.steps.length - 1] : null;
+    return (
+      <div className="space-y-3">
+        {r.steps?.map((s: any, i: number) => s.preview?.kind === "svg" && <img key={i} src={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(s.preview.content)}`} alt="" className="max-h-96 w-full rounded-xl border border-border bg-background object-contain" />)}
+        {job.artifacts.length > 0 && <div className="flex flex-wrap gap-2">{job.artifacts.map((a) => <Button key={a.id} asChild size="sm" variant="secondary" className="rounded-full"><a href={downloadUrl(a.id)} download={a.name}><Download className="mr-1.5 h-3.5 w-3.5" />{a.name}</a></Button>)}</div>}
+        <CleanText text={last ? (last.preview?.kind === "markdown" ? last.preview.content : last.text ?? "") : r.answer} />
+      </div>
+    );
+  }
+  // While working: a quiet thinking pulse instead of status words.
+  if (job.type === "agent_task" && running) {
+    return <div className="flex items-center gap-1.5 py-2" role="status" aria-label="Working">{[0, 1, 2].map((i) => <span key={i} className="size-2 animate-pulse rounded-full bg-muted-foreground" style={{ animationDelay: `${i * 0.2}s` }} />)}</div>;
   }
   return (
     <div className="rounded-2xl border border-border bg-card p-4 text-card-foreground">
