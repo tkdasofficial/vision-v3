@@ -17,7 +17,8 @@ const Index = ({ isIncognito = false, creationMode }: { isIncognito?: boolean; c
   const [selectedTool, setSelectedTool] = useState<AITool | undefined>(undefined);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [chatKey, setChatKey] = useState(0);
-  const [activeChatId, setActiveChatId] = useState<string | undefined>(urlChatId);
+  // Starts empty so the effect below loads saved messages when a chat is opened by its address (including reloads).
+  const [activeChatId, setActiveChatId] = useState<string | undefined>(undefined);
   const [loadedMessages, setLoadedMessages] = useState<any[] | undefined>(undefined);
 
   // Sync URL param to state
