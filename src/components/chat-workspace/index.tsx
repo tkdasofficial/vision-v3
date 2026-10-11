@@ -185,6 +185,20 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     };
   }, [chatId, user, isIncognito]);
 
+  /** Runs a backend job and keeps one assistant message in this chat updated with its live status. */
+  const runInlineJob = useCallback(async (type: "project_generate" | "code_export", input: Record<string, unknown>, sessionId: string | null) => {
+    const msgId = crypto.randomUUID();
+    const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : "Writing your file. The download will appear here.";
+    const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
+      const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
+      const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
+      return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
+    });
+    try { await runJob(type, { input }, show); }
+    catch (e: any) { setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
+    void sessionId;
+  }, []);
+
   const handleSend = useCallback(async (content: string, imageData?: { base64: string; mimeType: string }, taskMode?: ChatMode) => {
     if (creationMode) {
       setCreationError(AI_FEATURE_UNAVAILABLE);
@@ -400,64 +414,10 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     const isAgent = (!taskMode || taskMode === "default") && /\b(build|create|make|generate)\b.*\b(web\s*app|website|landing\s*page|dashboard|portfolio|SPA|single.page.app|game|2d|3d|platformer|rpg|puzzle|arcade|shooter|racing|runner|fighting|tower.defense|card.game|tetris|snake|pong|breakout|flappy|chess|checkers|fps|open.world|sandbox|survival|roguelike|roguelite|metroidvania|beat.em.up|rhythm|simulation|strategy|mmorpg|moba|battle.royale)\b/i.test(content);
 
     if (isAgent) {
-      try {
-        // Gather existing project state from previous messages
-        const lastWebApp = [...messages].reverse().find((m) => m.webApp)?.webApp;
-
-        // Build conversation history for context continuity
-        const conversationHistory = messages
-          .filter((m) => !m.imageUrl && !m.videos && !m.videoGeneration && !m.videoEdit)
-          .map((m) => ({ role: m.role, content: m.content }));
-
-        // Detect quality mode from content
-        const quality = /\b(production|prod|professional|polished)\b/i.test(content)
-          ? "production"
-          : /\b(prototype|proto|quick|simple|fast|basic)\b/i.test(content)
-          ? "prototype"
-          : "production"; // default to production for 10x quality
-
-        dispatchBgTask("code", { prompt: content, quality, projectState: lastWebApp, conversationHistory }, chatId || undefined).catch(() => {});
-        const resp = await fetch(CODE_GEN_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            messages: [{ role: "user", content }],
-            projectState: lastWebApp || undefined,
-            conversationHistory: conversationHistory.length > 0 ? conversationHistory : undefined,
-            quality,
-          }),
-        });
-
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || "Code generation failed");
-
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: data.explanation || "Here's your generated web application!",
-          timestamp: new Date(),
-          webApp: {
-            files: data.files,
-            framework: data.framework,
-            dependencies: data.dependencies || {},
-            entryPoint: data.entryPoint || "index.html",
-            explanation: data.explanation || "",
-            quality,
-          },
-        }]);
-      } catch (e: any) {
-        setMessages((prev) => [...prev, {
-          id: (Date.now() + 1).toString(),
-          role: "assistant",
-          content: `Sorry, code generation failed: ${e.message}`,
-          timestamp: new Date(),
-        }]);
-      }
-      clearTimeout(phaseTimer);
+      // Built on the server as a tracked job; progress, files and the ZIP download appear in this message.
+      clearPhaseTimers();
       setIsTyping(false);
+      await runInlineJob("project_generate", { prompt: content }, sessionId);
       return;
     }
 
@@ -469,6 +429,14 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       || /\b(save|export|download)\b.*\b(as|to|into)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls|excel|file)\b/i.test(content)
       || /\b(write|create)\b.*\b(txt|pdf|md|html|csv|json|xml|xlsx|xls)\b/i.test(content)
       || /\b(create|make|generate|build)\b.*\b(excel|spreadsheet|sheet|workbook)\b/i.test(content);
+
+    const codeFmt = fileFormatMatch?.[1]?.toLowerCase();
+    if (isFileCreate && codeFmt && ["js", "ts", "py", "sql", "sh", "bat", "html", "css", "json", "yaml", "toml", "xml"].includes(codeFmt)) {
+      clearPhaseTimers();
+      setIsTyping(false);
+      await runInlineJob("code_export", { prompt: content, language: codeFmt }, sessionId);
+      return;
+    }
 
     if (isFileCreate && !isAgent) {
       const fmMatch = fileFormatMatch?.[1]?.toLowerCase();

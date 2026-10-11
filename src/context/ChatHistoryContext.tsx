@@ -89,6 +89,8 @@ function buildMetadata(msg: ChatMessage): Record<string, any> {
   if (msg.videoEdit) meta.videoEdit = msg.videoEdit;
   if (msg.webApp) meta.webApp = msg.webApp;
   if (msg.document) meta.document = msg.document;
+  // Job snapshot without bulky file contents; the card reloads live state from the server.
+  if (msg.job) meta.job = { ...msg.job, result: msg.job.result ? { ...msg.job.result, webApp: undefined, content: undefined } : null };
   if (msg.executionMode) meta.executionMode = msg.executionMode;
   return meta;
 }
@@ -108,6 +110,7 @@ function rowToMessage(row: any): ChatMessage {
     videoEdit: meta.videoEdit,
     webApp: meta.webApp,
     document: meta.document,
+    job: meta.job,
     executionMode: meta.executionMode,
   };
 }
