@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from "react";
-import { ArrowUp, Paperclip, Mic, MicOff, X } from "lucide-react";
+import { ArrowUp, Mic, MicOff, X } from "lucide-react";
+import AttachMenu, { ACCEPT } from "./attach-menu";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { PromptInput, PromptInputTextarea, PromptInputFooter, PromptInputSubmit } from "@/components/ai-elements/prompt-input";
