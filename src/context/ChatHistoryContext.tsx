@@ -89,8 +89,6 @@ function buildMetadata(msg: ChatMessage): Record<string, any> {
   if (msg.videoEdit) meta.videoEdit = msg.videoEdit;
   if (msg.webApp) meta.webApp = msg.webApp;
   if (msg.document) meta.document = msg.document;
-  // Job snapshot without bulky file contents; the card reloads live state from the server.
-  if (msg.job) meta.job = { ...msg.job, result: msg.job.result ? { ...msg.job.result, webApp: undefined, content: undefined } : null };
   if (msg.executionMode) meta.executionMode = msg.executionMode;
   return meta;
 }
@@ -110,7 +108,6 @@ function rowToMessage(row: any): ChatMessage {
     videoEdit: meta.videoEdit,
     webApp: meta.webApp,
     document: meta.document,
-    job: meta.job,
     executionMode: meta.executionMode,
   };
 }
@@ -312,7 +309,8 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
 
     // Debounced save of messages that are new or changed since the last save.
     const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const pending = messages.filter((m) => m.content && savedRef.current.get(m.id) !== m.content);
+    // Task messages are restored from the server's task records, so they are not saved as chat rows.
+    const pending = messages.filter((m) => m.content && !m.job && savedRef.current.get(m.id) !== m.content);
     if (pending.length === 0) return;
     const rows = pending.map((m) => {
       if (!UUID.test(m.id) && !idMapRef.current.has(m.id)) idMapRef.current.set(m.id, crypto.randomUUID());
@@ -325,14 +323,21 @@ export const ChatHistoryProvider = ({ children }: { children: ReactNode }) => {
         metadata: buildMetadata(m) as any,
       };
     });
+    // Merge with rows still waiting from earlier calls so a rapid follow-up save never drops them.
+    const queue = (pendingRows.current[id] ??= new Map());
+    rows.forEach((r, i) => queue.set(r.id, { row: r, msg: pending[i] }));
     clearTimeout(saveTimers.current[id]);
     saveTimers.current[id] = setTimeout(() => {
-      pending.forEach((m) => savedRef.current.set(m.id, m.content));
+      const batch = [...queue.values()];
+      queue.clear();
+      const allRows = batch.map((b) => b.row);
+      const allMsgs = batch.map((b) => b.msg);
+      allMsgs.forEach((m) => savedRef.current.set(m.id, m.content));
     supabase
       .from("chat_messages")
-      .upsert(rows, { onConflict: "id" })
+      .upsert(allRows, { onConflict: "id" })
       .then(({ error }) => {
-        if (error) { console.error("Failed to save messages:", error); pending.forEach((m) => savedRef.current.delete(m.id)); }
+        if (error) { console.error("Failed to save messages:", error); allMsgs.forEach((m) => savedRef.current.delete(m.id)); }
       });
       supabase.from("chat_sessions").update({ updated_at: new Date().toISOString() }).eq("id", id).then(() => {});
     }, 800);
