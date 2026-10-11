@@ -331,7 +331,7 @@ const ChatMessage = forwardRef<HTMLDivElement, Props>(({ message, isNew = false 
 
             {/* Render segments: text → task card → text */}
             {message.document && <DocumentCard id={message.document.id} title={message.document.title} />}
-            {message.content && !message.document && segments.map((seg, i) => {
+            {message.content && !message.document && !(message.job?.type === "code_export" && message.job.status !== "failed") && segments.map((seg, i) => {
               const displayed = seg.content.slice(0, charCounts[i] ?? seg.content.length);
               const isActive = activeSegIdx === i;
               const segVisible = charCounts[i] > 0 || !shouldAnimate;

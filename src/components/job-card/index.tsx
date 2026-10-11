@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { JOB_STATUSES, isTerminal, type JobView } from "@/lib/builder/statuses";
 import { cancelJob, downloadUrl, fetchJob } from "@/lib/builder/jobs-client";
+import CodeBlock from "@/components/chat/code-block";
 
 const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis", agent_task: "Task", runtime_task: "Background task" } as const;
 const fmt = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
@@ -41,6 +42,10 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
   const [cancelling, setCancelling] = useState(false);
   const running = !isTerminal(job.status);
   const r = job.result ?? {};
+  // Finished code shows only the clean code canvas — no title, badge, icons or menu.
+  if (job.type === "code_export" && r.content && (job.status === "completed" || job.status === "completed_with_warnings")) {
+    return <CodeBlock code={r.content} language={r.language} filename={r.fileName} />;
+  }
   return (
     <div className="rounded-2xl border border-border bg-card p-4 text-card-foreground">
       <div className="flex items-start gap-3">
