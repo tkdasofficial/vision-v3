@@ -3,16 +3,20 @@ import { MODELS, type ModelRef } from "@/lib/ai/models.server";
 import { streamFromProvider } from "@/lib/ai/providers.server";
 
 const CODING: ModelRef[] = [MODELS.cfCoder, MODELS.groq120b, MODELS.cf120b];
+/** Planning/JSON work: general reasoning models first. */
+export const PLANNING: ModelRef[] = [MODELS.groq120b, MODELS.cf120b, MODELS.cfCoder];
 
-export async function complete(system: string, user: string, opts: { maxTokens?: number; signal?: AbortSignal } = {}): Promise<{ text: string; model: string }> {
+export async function complete(system: string, user: string, opts: { maxTokens?: number; signal?: AbortSignal; models?: ModelRef[] } = {}): Promise<{ text: string; model: string }> {
   const signal = opts.signal ?? new AbortController().signal;
   const messages = [{ role: "system", content: system }, { role: "user", content: user }];
   let last = "AI couldn't answer right now.";
-  for (const m of CODING) {
+  for (const m of opts.models ?? CODING) {
     const r = await streamFromProvider(m, messages, { maxTokens: opts.maxTokens ?? 8192, deep: false }, signal);
     if (!r.ok) { last = r.status === 429 ? "AI is busy right now. Please try again in a moment." : last; continue; }
     const text = await readSse(r.body);
-    if (text.trim()) return { text, model: m.label };
+    const clean = text.replace(/<think>[\s\S]*?<\/think>/g, "");
+    if (clean.trim()) return { text: clean, model: m.label };
+    if (false) return { text, model: m.label };
   }
   throw new Error(last);
 }

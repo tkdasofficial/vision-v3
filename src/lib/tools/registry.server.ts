@@ -7,8 +7,8 @@ import { readArchiveSafely } from "@/lib/builder/archive";
 import { findSecretKinds } from "../../../security/archive/zip-guard";
 
 export type WorkFile = { name: string; mime: string; bytes: Uint8Array };
-export type ToolOut = { text?: string; data?: unknown; files?: WorkFile[]; preview?: { kind: "svg" | "markdown"; content: string } };
-export type ToolCtx = { files: WorkFile[]; lastText: string; complete: (system: string, user: string, maxTokens?: number) => Promise<string>; note: (d: string) => Promise<void> };
+export type ToolOut = { table?: unknown[][]; text?: string; data?: unknown; files?: WorkFile[]; preview?: { kind: "svg" | "markdown"; content: string } };
+export type ToolCtx = { files: WorkFile[]; lastText: string; lastTable?: unknown[][]; complete: (system: string, user: string, maxTokens?: number) => Promise<string>; note: (d: string) => Promise<void> };
 export type Tool = { id: string; category: string; desc: string; params: string; run: (c: ToolCtx, p: any) => Promise<ToolOut> };
 
 const MAX_TEXT = 400_000;
@@ -191,8 +191,19 @@ export const TOOLS: Tool[] = [
     return { text: r.text, data: { words: r.words }, files: [txt(`${base(f.name)}.txt`, r.text), txt(`${base(f.name)}.vtt`, r.vtt, "text/vtt")] };
   } },
   // Documents & PDF
-  { id: "create_document", category: "File creation", desc: "Write a new document with AI (report, letter, resume, essay, notes, table…) and save it as pdf, docx, html, md, txt, epub, xlsx or csv. Uses the previous step's text as source when present", params: '{"request": string, "format": "pdf"|"docx"|"html"|"md"|"txt"|"epub"|"xlsx"|"csv", "title"?: string, "use_previous"?: boolean}', run: async (c, p) => {
+  { id: "create_document", category: "File creation", desc: "Write a new document with AI (report, letter, resume, essay, notes, table…) and save it as pdf, docx, html, md, txt, epub, xlsx or csv. Uses the previous step's text as source when present", params: '{"request": string, "format": "pdf"|"docx"|"html"|"md"|"txt"|"epub"|"xlsx"|"csv", "title"?: string, "use_previous"?: boolean, "verbatim"?: boolean (true = save the previous step text unchanged)}', run: async (c, p) => {
     const fmt = String(p?.format || "md").toLowerCase();
+    if (p?.verbatim && c.lastText && !/xlsx|csv|excel/.test(fmt)) {
+      const title = p?.title || c.lastText.match(/^#\s+(.*)/m)?.[1] || "Document";
+      return { text: `Saved the previous result as ${fmt.toUpperCase()}.`, files: [await buildDocument(fmt, title, c.lastText)] };
+    }
+    if (/xlsx|csv|excel/.test(fmt) && (c.lastTable || c.files.some((f) => /\.(csv|tsv|json)$/i.test(f.name) || kindOf(f) === "xlsx"))) {
+      // Real data is available: write it as-is instead of letting the AI retype (and possibly invent) numbers.
+      const rows = c.lastTable ?? await tableOf(c, {});
+      const title = p?.title || "data";
+      const file = fmt === "csv" ? txt(`${P.slugify(title) || "data"}.csv`, P.toCsv(rows), "text/csv") : { name: `${P.slugify(title) || "data"}.xlsx`, mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes: writeXlsx([{ name: title.slice(0, 31), rows }]) };
+      return { text: `Saved ${rows.length - 1} data rows to ${file.name}.`, files: [file], table: rows };
+    }
     const src = p?.use_previous !== false && c.lastText ? `\n\nSource material:\n${c.lastText.slice(0, 30000)}` : "";
     const md = clean(await c.complete(`You write complete, polished documents in Markdown. Use # headings, lists and Markdown tables where useful.${/xlsx|csv|excel/.test(fmt) ? " The document MUST be a single Markdown table with a header row containing all data." : ""} Output only the document.`, `${p?.request || "Write the document."}${src}`, 6000));
     if (!md) throw new Error("The writer returned nothing.");
@@ -305,7 +316,7 @@ export const TOOLS: Tool[] = [
     const md = [out[0], out[0].map(() => "---"), ...out.slice(1, 51)].map((r) => `| ${r.join(" | ")} |`).join("\n");
     const fmt = p?.format ?? "csv";
     const file = fmt === "xlsx" ? { name: "query-result.xlsx", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", bytes: writeXlsx([{ name: "Result", rows: out }]) } : fmt === "json" ? txt("query-result.json", JSON.stringify(P.rowsToObjects(out.map((r) => r.map((v) => String(v)))), null, 2), "application/json") : txt("query-result.csv", P.toCsv(out), "text/csv");
-    return { text: `${out.length - 1} row(s).\n\n${md}`, data: { rows: out.length - 1 }, files: [file] };
+    return { text: `${out.length - 1} row(s).\n\n${md}`, data: { rows: out.length - 1 }, files: [file], table: out };
   } },
   { id: "convert_data", category: "File conversion", desc: "Convert structured data: JSON↔YAML, JSON↔CSV, CSV→Excel, Excel→CSV/JSON, or pretty-print/validate JSON", params: '{"to": "json"|"yaml"|"csv"|"xlsx", "text"?: string}', run: async (c, p) => {
     const to = String(p?.to ?? "json").toLowerCase(); const f = c.files.length ? pick(c, p) : null; const name = f ? base(f.name) : "data";
@@ -323,8 +334,10 @@ export const TOOLS: Tool[] = [
     let labels: string[] = p?.labels, values: number[] = p?.values?.map(Number);
     if (!labels?.length) {
       const rows = await tableOf(c, p); const head = rows[0].map(String);
-      const li = p?.label_column ? head.findIndex((h) => h.toLowerCase() === String(p.label_column).toLowerCase()) : 0;
-      const vi = p?.value_column ? head.findIndex((h) => h.toLowerCase() === String(p.value_column).toLowerCase()) : head.findIndex((_, i) => i !== li && rows.slice(1).every((r) => Number.isFinite(Number(r[i]))));
+      const find = (name: unknown) => { if (!name) return -1; const n = String(name).toLowerCase(); let i = head.findIndex((h) => h.toLowerCase() === n); if (i < 0) i = head.findIndex((h) => h.toLowerCase().includes(n) || n.includes(h.toLowerCase())); return i; };
+      const isNum = (i: number) => rows.slice(1).every((r) => Number.isFinite(Number(String(r[i]).replace(/,/g, ""))));
+      let li = find(p?.label_column); if (li < 0) li = Math.max(0, head.findIndex((_, i) => !isNum(i)));
+      let vi = find(p?.value_column); if (vi < 0 || !isNum(vi)) vi = head.findIndex((_, i) => i !== li && isNum(i));
       if (li < 0 || vi < 0) throw new Error(`Pick columns to chart. Columns: ${head.join(", ")}`);
       const body = rows.slice(1, 61); labels = body.map((r) => String(r[li])); values = body.map((r) => Number(String(r[vi]).replace(/,/g, "")));
       p = { ...p, title: p?.title || `${head[vi]} by ${head[li]}` };
