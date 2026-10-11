@@ -16,7 +16,7 @@ export default function CodeBlock({ code, language, filename }: Props) {
         role="button" tabIndex={0} aria-label="Open code full screen"
         onClick={() => { if (!window.getSelection()?.toString()) setOpen(true); }}
         onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpen(true); } }}
-        className="absolute inset-0 cursor-zoom-in overflow-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-ring"
+        className="absolute inset-0 cursor-zoom-in touch-pan-x touch-pan-y overflow-auto overscroll-contain focus-visible:outline-2 focus-visible:outline-ring"
       >
         <pre className="m-0 min-w-max whitespace-pre p-4 pr-14"><code className="bg-transparent p-0 font-mono text-[13px] leading-relaxed">{code}</code></pre>
       </div>
