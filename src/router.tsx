@@ -10,7 +10,9 @@ function installStaleChunkRecovery() {
   (window as any).__visionChunkRecovery = true;
   const isChunkError = (msg: string) => CHUNK_ERROR_RE.test(msg);
   const recover = () => { recoverFromChunkError(); };
-  window.addEventListener("vite:preloadError", (e) => { e.preventDefault(); recover(); });
+  // Never preventDefault here: Vite would then resolve the failed import to `undefined`,
+  // and the router crashes reading `.component` of it (blank screen). Let it reject and reload.
+  window.addEventListener("vite:preloadError", () => { recover(); });
   window.addEventListener("unhandledrejection", (e) => { if (isChunkError(String(e.reason?.message ?? e.reason))) recover(); });
   window.addEventListener("error", (e) => { if (isChunkError(String(e.message))) recover(); });
 }
