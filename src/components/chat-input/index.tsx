@@ -184,7 +184,8 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
 
     // Documents, data, audio (and images picked as files): attach for the task agent.
     const isVideo = file.type.startsWith("video/") || /\.(mp4|webm|mov|mkv|avi)$/i.test(file.name);
-    if (onSendFiles && !isVideo) {
+    // Videos up to 25 MB go to the task system (format conversion runs in the background runtime).
+    if (onSendFiles && (!isVideo || file.size <= 25 * 1024 * 1024)) {
       setAttachedFiles((cur) => [...cur, file].slice(0, 10));
       e.target.value = "";
       return;

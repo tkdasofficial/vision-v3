@@ -191,7 +191,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     const msgId = `job-${jobId}`;
     const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : type === "agent_task" ? "Working on it. Each step, its results and any downloads will appear here." : "Writing your file. The download will appear here.";
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
-      const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
+      const content = job.status === "failed" || job.status === "timed_out" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
       const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
       return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
     });
@@ -209,7 +209,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
         const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
           id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
-          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" ? "Here's the result." : "Here's your file.",
+          content: j.status === "failed" || j.status === "timed_out" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" || j.type === "runtime_task" ? "Here's the result." : "Here's your file.",
         }));
         return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
       });
@@ -430,7 +430,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
 
     // Tool requests (documents, PDFs, data, charts, QR, security, math, web pages) run as a backend agent task.
     const isToolTask = (!taskMode || taskMode === "default") && (
-      /\b(qr\s*code|sha-?(1|256|384|512)|checksum|hash of|base64|jwt|uuid|generate (a )?password|strong password|unit conver|convert \d|calculate|chart|bar graph|line graph|pie chart|diagram|flowchart|mermaid|gantt|word document|\.docx|docx|epub|e-?book|fetch (the )?(page|url|website)|scrape|extract (text|links)|validate (these|this|the)|redact|privacy scan|yaml|json to csv|csv to json)\b/i.test(content)
+      /\b(qr\s*code|barcode|code ?128|code ?39|ean-?13|ean-?8|upc-?[ae]|sha-?(1|256|384|512)|checksum|hash of|base64|jwt|uuid|generate (a )?password|strong password|unit conver|convert \d|calculate|chart|bar graph|line graph|pie chart|diagram|flowchart|mermaid|gantt|word document|\.docx|docx|epub|e-?book|fetch (the )?(page|url|website)|scrape|extract (text|links)|validate (these|this|the)|redact|privacy scan|yaml|json to csv|csv to json)\b/i.test(content)
       || (/\b(create|make|generate|write|export|save|convert)\b/i.test(content) && /\b(pdf|docx|word|epub|excel|xlsx|spreadsheet|csv)\b/i.test(content))
       || /https?:\/\/\S+/.test(content) && /\b(summari[sz]e|extract|fetch|read|save|convert)\b/i.test(content));
     if (isToolTask) {

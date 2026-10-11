@@ -8,13 +8,13 @@ import remarkGfm from "remark-gfm";
 import { JOB_STATUSES, isTerminal, type JobView } from "@/lib/builder/statuses";
 import { cancelJob, downloadUrl, fetchJob } from "@/lib/builder/jobs-client";
 
-const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis", agent_task: "Task" } as const;
+const TITLES = { code_export: "Code file", project_generate: "Project", zip_analyze: "ZIP analysis", agent_task: "Task", runtime_task: "Background task" } as const;
 const fmt = (n: number) => (n > 1048576 ? `${(n / 1048576).toFixed(1)} MB` : n > 1024 ? `${(n / 1024).toFixed(1)} KB` : `${n} B`);
 
 function StatusIcon({ status }: { status: JobView["status"] }) {
   if (status === "completed") return <CheckCircle2 className="h-4 w-4 text-primary" />;
   if (status === "completed_with_warnings") return <AlertTriangle className="h-4 w-4 text-muted-foreground" />;
-  if (status === "failed") return <XCircle className="h-4 w-4 text-destructive" />;
+  if (status === "failed" || status === "timed_out") return <XCircle className="h-4 w-4 text-destructive" />;
   if (status === "cancelled") return <Ban className="h-4 w-4 text-muted-foreground" />;
   return <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />;
 }
@@ -48,14 +48,14 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold">{TITLES[job.type]}{r.name ? ` · ${r.name}` : r.fileName ? ` · ${r.fileName}` : ""}</span>
-            <Badge variant={job.status === "failed" ? "destructive" : "secondary"} className="rounded-full">{JOB_STATUSES[job.status]}</Badge>
+            <Badge variant={job.status === "failed" || job.status === "timed_out" ? "destructive" : "secondary"} className="rounded-full">{JOB_STATUSES[job.status]}</Badge>
           </div>
           <p className="mt-0.5 truncate text-xs text-muted-foreground" aria-live="polite">{job.error ?? job.detail}</p>
           {job.progress != null && running && <div className="mt-2 h-1 overflow-hidden rounded bg-muted"><div className="h-full bg-primary" style={{ width: `${Math.round(job.progress * 100)}%` }} /></div>}
         </div>
         <div className="flex shrink-0 gap-1">
           {running && <Button size="sm" variant="ghost" disabled={cancelling} onClick={async () => { setCancelling(true); await cancelJob(job.id).catch(() => setCancelling(false)); }} aria-label="Cancel task"><Square className="h-3.5 w-3.5" /></Button>}
-          {(job.status === "failed" || job.status === "cancelled") && onRetry && <Button size="sm" variant="ghost" onClick={() => onRetry(job.id)} aria-label="Retry task"><RotateCcw className="h-3.5 w-3.5" /></Button>}
+          {(job.status === "failed" || job.status === "cancelled" || job.status === "timed_out") && onRetry && <Button size="sm" variant="ghost" onClick={() => onRetry(job.id)} aria-label="Retry task"><RotateCcw className="h-3.5 w-3.5" /></Button>}
           <Button size="sm" variant="ghost" onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Show details"><ChevronDown className={cn("h-4 w-4 transition-transform", open && "rotate-180")} /></Button>
         </div>
       </div>
@@ -70,6 +70,18 @@ export default function JobCard({ job: given, onRetry, compact }: { job: JobView
         </div>
       )}
 
+      {job.type === "runtime_task" && r.checksum && (
+        <div className="mt-3 space-y-1 rounded-xl bg-muted p-3 font-mono text-xs break-all">
+          {r.checksum.sha256 && <p><span className="font-sans font-medium">SHA-256</span> {r.checksum.sha256}</p>}
+          {r.checksum.sha512 && <p><span className="font-sans font-medium">SHA-512</span> {r.checksum.sha512}</p>}
+          {r.checksum.verify && <p className="font-sans font-medium">{r.checksum.verify.match ? "Matches the expected checksum" : "Does NOT match the expected checksum"}</p>}
+        </div>
+      )}
+      {job.type === "runtime_task" && r.details && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {[r.details.from && `${String(r.details.from).toUpperCase()} → ${String(r.details.to).toUpperCase()}`, !r.details.from && r.details.to && `→ ${String(r.details.to).toUpperCase()}`, r.details.width && `${r.details.width}×${r.details.height}`, r.details.duration && `${r.details.duration}s`, r.details.video_codec && `${r.details.video_codec}${r.details.audio_codec ? ` + ${r.details.audio_codec}` : ""}`, r.inputSize && r.outputSize && `${fmt(r.inputSize)} → ${fmt(r.outputSize)}`].filter(Boolean).join(" · ")}
+        </p>
+      )}
       {job.type === "agent_task" && (r.answer || r.steps?.length) && (
         <div className="mt-3 space-y-3">
           {r.answer && !r.steps?.length && <div className="prose prose-sm max-w-none text-foreground dark:prose-invert"><ReactMarkdown remarkPlugins={[remarkGfm]}>{r.answer}</ReactMarkdown></div>}

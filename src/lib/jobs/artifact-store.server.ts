@@ -20,6 +20,16 @@ export async function putArtifact(name: string, mime: string, bytes: Uint8Array)
   return key;
 }
 
+/** Always stores in D1 (the runtime relay reads/writes these chunks directly). */
+export async function putD1Artifact(bytes: Uint8Array): Promise<{ key: string; chunks: number }> {
+  const key = `d1:${crypto.randomUUID()}`;
+  let idx = 0;
+  for (let i = 0; i < Math.max(bytes.length, 1); i += CHUNK, idx++) {
+    await d1("INSERT INTO artifact_chunks (artifact_key, idx, data) VALUES (?, ?, ?)", [key, idx, b64(bytes.subarray(i, i + CHUNK))]);
+  }
+  return { key, chunks: idx };
+}
+
 export async function getArtifactBytes(key: string): Promise<Uint8Array> {
   if (!key.startsWith("d1:")) {
     const { readPrivate } = await import("@/lib/cloud/drive.server");

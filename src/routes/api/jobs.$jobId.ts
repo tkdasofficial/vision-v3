@@ -29,7 +29,7 @@ export const Route = createFileRoute("/api/jobs/$jobId")({
           if (!jobs.ID_RE.test(String(body.newId))) return Response.json({ error: "Invalid job id." }, { status: 400 });
           const prev = await jobs.getJobInput(caller.user.id, params.jobId);
           if (!prev) return Response.json({ error: "Not found." }, { status: 404 });
-          if (prev.status !== "failed" && prev.status !== "cancelled") return Response.json({ error: "Only failed or cancelled tasks can be retried." }, { status: 409 });
+          if (prev.status !== "failed" && prev.status !== "cancelled" && prev.status !== "timed_out") return Response.json({ error: "Only failed or cancelled tasks can be retried." }, { status: 409 });
           if (prev.attempt >= 5) return Response.json({ error: "Retry limit reached." }, { status: 429 });
           const { startJob } = await import("@/lib/jobs/dispatch.server");
           const job = await startJob(caller.user.id, body.newId, prev.type, prev.input, prev.attempt + 1, prev.sessionId);

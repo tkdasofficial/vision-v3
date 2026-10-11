@@ -21,6 +21,14 @@ export class JobRun {
   steps: JobStep[] = [];
   warnings: string[] = [];
   constructor(public id: string, public userId: string) {}
+  /** Rebuilds a JobRun from a stored row so later processes can keep appending real steps. */
+  static restore(r: any) { const j = new JobRun(r.id, r.user_id); j.steps = JSON.parse(r.steps || "[]"); j.warnings = JSON.parse(r.warnings || "[]"); return j; }
+  async cancelled() { await this.fail(new CancelledError()); }
+  async timedOut(message: string) {
+    this.closeLast("error");
+    this.steps.push({ status: "timed_out", detail: message, at: now(), endedAt: now(), outcome: "error" });
+    await d1("UPDATE jobs SET status = 'timed_out', detail = ?, progress = NULL, steps = ?, error = ?, updated_at = ? WHERE id = ?", [message, JSON.stringify(this.steps), message, now(), this.id]);
+  }
 
   private async save(status: JobStatus, detail: string, progress: number | null = null) {
     await d1("UPDATE jobs SET status = ?, detail = ?, progress = ?, steps = ?, warnings = ?, updated_at = ? WHERE id = ?",
@@ -89,6 +97,14 @@ function toView(r: any, artifacts: ArtifactRef[]): JobView {
 
 /** Marks jobs whose worker stopped reporting as failed, so the UI never shows a frozen "running" state. */
 async function recover(r: any) {
+  if (r.type === "runtime_task" && !isTerminal(r.status)) {
+    // Runtime jobs run on GitHub; their own deadline/run checks decide failure, not the stale timer.
+    const { syncRuntimeJob } = await import("@/lib/runtime/runtime.server");
+    if (await syncRuntimeJob(r).catch((e) => { console.error("[runtime] sync", safeError(e)); return false; })) {
+      return (await d1<any>("SELECT * FROM jobs WHERE id = ?", [r.id]))[0] ?? r;
+    }
+    return r;
+  }
   const s = recoveredStatus(r.status, r.updated_at);
   if (s === r.status) return r;
   const steps = JSON.parse(r.steps || "[]");
@@ -118,7 +134,7 @@ export async function getJob(userId: string, id: string): Promise<JobView | null
 export async function getJobInput(userId: string, id: string): Promise<{ type: JobType; input: any; attempt: number; status: JobStatus; sessionId: string | null } | null> {
   const rows = await d1<any>("SELECT type, input, attempt, status, updated_at, session_id FROM jobs WHERE id = ? AND user_id = ?", [id, userId]);
   if (!rows[0]) return null;
-  return { type: rows[0].type, input: JSON.parse(rows[0].input || "{}"), attempt: rows[0].attempt ?? 1, status: recoveredStatus(rows[0].status, rows[0].updated_at), sessionId: rows[0].session_id ?? null };
+  return { type: rows[0].type, input: JSON.parse(rows[0].input || "{}"), attempt: rows[0].attempt ?? 1, status: rows[0].type === "runtime_task" ? rows[0].status : recoveredStatus(rows[0].status, rows[0].updated_at), sessionId: rows[0].session_id ?? null };
 }
 
 export async function listJobs(userId: string, limit = 30, sessionId?: string): Promise<JobView[]> {
