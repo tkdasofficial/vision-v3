@@ -1,3 +1,4 @@
+import { UserRound, CircleHelp } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import { Palette, Languages, Sparkles, MessagesSquare, Database, ShieldCheck, Accessibility, Bell, Info, User, Inbox, Crown, LayoutDashboard, FileText, Shield, HelpCircle, LifeBuoy, LogOut, Mail, ChevronRight } from "lucide-react";
@@ -62,7 +63,7 @@ export default function SettingsDirectory() {
 
   return (
     <div className="flex min-h-[100dvh] flex-col bg-background">
-      <PageHeader title="Settings" backTo="/chat" />
+      <PageHeader title="Settings" backTo="/chat" menu={[{ label: "Account", icon: UserRound, onSelect: () => navigate("/account") }, { label: "Help & FAQ", icon: CircleHelp, onSelect: () => navigate("/help/faq") }, { label: "Support", icon: LifeBuoy, onSelect: () => navigate("/support") }, { label: "About", icon: Info, onSelect: () => navigate("/settings/about"), separatorBefore: true }]} />
       <div className="flex-1 overflow-y-auto px-4 pt-2 pb-12">
         <div className="mx-auto max-w-lg space-y-7">
           <Link to="/account" className="flex flex-col items-center gap-3 pt-1">

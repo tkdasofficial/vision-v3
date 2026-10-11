@@ -1,3 +1,4 @@
+import { RefreshCw, Library } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { FolderOpen, Plus, Pencil, Trash2, MoreVertical } from "lucide-react";
 import { toast } from "sonner";
@@ -63,6 +64,7 @@ export default function Projects() {
 
   return <WorkspaceShell title="Projects" backTo="/chat"
     actions={<Button variant="secondary" size="icon" className="rounded-full [&_svg]:size-5" aria-label="Create project" title="Create project" onClick={() => navigate("/projects/new")}><Plus /></Button>}
+    menu={[{ label: "New project", icon: Plus, onSelect: () => navigate("/projects/new") }, { label: "Refresh", icon: RefreshCw, onSelect: () => window.location.reload() }, { label: "Library", icon: Library, onSelect: () => navigate("/library"), separatorBefore: true }]}
     footer={<BottomSearch value={query} onChange={setQuery} placeholder="Search" label="Search projects" />}>
     <div className="mb-4 flex gap-2"><span className="rounded-full bg-secondary px-5 py-2 text-base font-semibold text-foreground">All</span></div>
     {editing && <form className="mb-6 flex flex-wrap gap-2" onSubmit={(event) => { event.preventDefault(); void save(); }}>
