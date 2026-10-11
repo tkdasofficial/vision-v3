@@ -186,16 +186,16 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
   }, [chatId, user, isIncognito]);
 
   /** Runs a backend job and keeps one assistant message in this chat updated with its live status. */
-  const runInlineJob = useCallback(async (type: "project_generate" | "code_export", input: Record<string, unknown>, sessionId: string | null) => {
+  const runInlineJob = useCallback(async (type: "project_generate" | "code_export" | "agent_task", input: Record<string, unknown>, sessionId: string | null, files?: File[]) => {
     const jobId = crypto.randomUUID();
     const msgId = `job-${jobId}`;
-    const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : "Writing your file. The download will appear here.";
+    const intro = type === "project_generate" ? "Building your project. Progress, files and the ZIP download will appear here." : type === "agent_task" ? "Working on it. Each step, its results and any downloads will appear here." : "Writing your file. The download will appear here.";
     const show = (job: import("@/lib/builder/statuses").JobView) => setMessages((prev) => {
       const content = job.status === "failed" ? `That didn't work: ${job.error ?? "unknown error"}` : job.status === "cancelled" ? "Task cancelled." : intro;
       const msg: ChatMessageType = { id: msgId, role: "assistant", content, timestamp: new Date(), job };
       return prev.some((m) => m.id === msgId) ? prev.map((m) => (m.id === msgId ? msg : m)) : [...prev, msg];
     });
-    try { await runJob(type, { input, sessionId }, show, jobId); }
+    try { await runJob(type, files ? { files, prompt: String(input.prompt ?? ""), sessionId } : { input, sessionId }, show, jobId); }
     catch (e: any) { setMessages((prev) => [...prev.filter((m) => m.id !== msgId), { id: msgId, role: "assistant", content: `Sorry, that task couldn't start: ${e.message}`, timestamp: new Date() }]); }
   }, []);
 
@@ -209,7 +209,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
         const have = new Set(prev.map((m) => m.job?.id).filter(Boolean));
         const missing = jobs.filter((j) => !have.has(j.id)).map((j): ChatMessageType => ({
           id: `job-${j.id}`, role: "assistant", timestamp: new Date(j.createdAt), job: j,
-          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : "Here's your file.",
+          content: j.status === "failed" ? `That didn't work: ${j.error ?? "unknown error"}` : j.type === "zip_analyze" ? `Analysis of **${j.result?.fileName ?? "your ZIP"}**` : j.type === "project_generate" ? "Here's your project." : j.type === "agent_task" ? "Here's the result." : "Here's your file.",
         }));
         return missing.length ? [...prev, ...missing].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) : prev;
       });
@@ -425,6 +425,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       }
       clearTimeout(phaseTimer);
       setIsTyping(false);
+      return;
+    }
+
+    // Tool requests (documents, PDFs, data, charts, QR, security, math, web pages) run as a backend agent task.
+    const isToolTask = (!taskMode || taskMode === "default") && (
+      /\b(qr\s*code|sha-?(1|256|384|512)|checksum|hash of|base64|jwt|uuid|generate (a )?password|strong password|unit conver|convert \d|calculate|chart|bar graph|line graph|pie chart|diagram|flowchart|mermaid|gantt|word document|\.docx|docx|epub|e-?book|fetch (the )?(page|url|website)|scrape|extract (text|links)|validate (these|this|the)|redact|privacy scan|yaml|json to csv|csv to json)\b/i.test(content)
+      || (/\b(create|make|generate|write|export|save|convert)\b/i.test(content) && /\b(pdf|docx|word|epub|excel|xlsx|spreadsheet|csv)\b/i.test(content))
+      || /https?:\/\/\S+/.test(content) && /\b(summari[sz]e|extract|fetch|read|save|convert)\b/i.test(content));
+    if (isToolTask) {
+      clearPhaseTimers();
+      setIsTyping(false);
+      await runInlineJob("agent_task", { prompt: content }, sessionId);
       return;
     }
 
@@ -713,6 +725,18 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
     }
   }, [tool, chatId, addChat, messages, updateChatMessages, dispatchBgTask, isIncognito, creationMode]);
 
+  /** Attached documents/data/audio plus an instruction → one backend agent task in this chat. */
+  const handleSendFiles = useCallback(async (content: string, files: File[]) => {
+    setMessages((prev) => [...prev, { id: Date.now().toString(), role: "user", content: `${content}\n\n📎 ${files.map((f) => f.name).join(", ")}`, timestamp: new Date() }]);
+    let sid: string | null = isIncognito ? null : chatId;
+    if (!isIncognito && !chatId) {
+      const title = content.slice(0, 60) || files[0].name;
+      sid = addChat(title, content.slice(0, 120), tool?.id);
+      setChatId(sid); setChatTitle(title); onChatCreated?.(sid);
+    }
+    await runInlineJob("agent_task", { prompt: content }, sid, files);
+  }, [chatId, addChat, tool, isIncognito, runInlineJob]);
+
   const handleZipUpload = useCallback(async (file: File) => {
     const userMsg: ChatMessageType = {
       id: Date.now().toString(),
@@ -842,7 +866,7 @@ const ChatWorkspace = ({ tool, onMenuClick, initialMessages, chatId: externalCha
       </div>
 
       {creationError && <p role="alert" className="mx-auto max-w-2xl px-4 pb-2 text-center text-sm text-destructive">{creationError}</p>}
-      <ChatInput creationMode={creationMode} toolName={tool?.shortName} onSend={handleSend} onZipUpload={creationMode ? undefined : handleZipUpload} onFileConvert={creationMode ? undefined : handleFileConvert} disabled={isTyping} />
+      <ChatInput creationMode={creationMode} toolName={tool?.shortName} onSend={handleSend} onZipUpload={creationMode ? undefined : handleZipUpload} onFileConvert={creationMode ? undefined : handleFileConvert} onSendFiles={creationMode ? undefined : handleSendFiles} disabled={isTyping} />
     </div>
   );
 };
