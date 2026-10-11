@@ -243,7 +243,7 @@ const ChatInput = ({ toolName, onSend, onZipUpload, onFileConvert, onSendFiles, 
         <PromptInput onSubmit={() => handleSend()} className="[&_[data-slot=input-group]]:rounded-[24px] [&_[data-slot=input-group]]:bg-card [&_[data-slot=input-group]]:shadow-none [&_[data-slot=input-group]]:ring-0! [&_[data-slot=input-group]]:focus-within:border-foreground/20">
           {/* Attachments and pasted prompts: same look as in the sent message */}
           {(attachedImage || attachedFiles.length > 0 || pasted.length > 0) && (
-            <div className="flex flex-wrap gap-3 px-3 pt-4 pr-5">
+            <div className="flex w-full flex-wrap justify-start gap-3 self-stretch px-3 pt-4 pr-5">
               {attachedImage && (
                 <ImageTile src={attachedImage.preview} alt="Attached image">
                   <RemoveBtn label="Remove attached image" onClick={() => setAttachedImage(null)} />
